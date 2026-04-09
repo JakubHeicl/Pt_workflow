@@ -45,6 +45,6 @@ class Scheduler:
         if result.returncode != 0:
             raise RuntimeError(f"Failed to submit job: {result.stderr}")
         job_id = result.stdout.strip().split()[-1]
-        job_script_path.unlink()
+        #job_script_path.unlink()
         return job_id
 
