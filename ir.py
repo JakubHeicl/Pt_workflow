@@ -4,10 +4,12 @@ from enum import Enum
 
 
 class CalculationType(Enum):
-    INITIALIZED = "initialized"
-    LANL_OPT = "lanl_opt"
-    DZ_OPT = "dz_opt"
-
+    LANL_OPT = "LANL optimization"
+    DZ_OPT = "DZ optimization   "
+    AIM_ANALYSIS = "AIM analysis"
+    LIGAND_ENERGIES_CALCULATION = "Ligand energies calculation"
+    ALIP_CALCULATION = "ALIP calculation"
+    ELSTAT_CALCULATION = "Electrostatic potential calculation"
 
 class Status(Enum):
     PENDING = "pending"
@@ -18,10 +20,10 @@ class Status(Enum):
 
 @dataclass
 class CalculationStep:
-    calculation_type: CalculationType = CalculationType.INITIALIZED
-    status: Status = Status.PENDING
+    calculation_type: CalculationType
+    status: Status
+    folder: Path
     job_id: str | None = None
-    folder: Path | None = None
 
     def to_json(self) -> dict:
         return {
@@ -46,45 +48,23 @@ class CalculationStep:
 class WorkflowCase:
     name: str
     directory: Path
+    input_file: Path
     charge: int
     multiplicity: int
-    source_input: Path | None = None
     steps: list[CalculationStep] = field(default_factory=list)
     current_step_index: int = 0
-
-    def current_step(self) -> CalculationStep | None:
-        if not self.steps:
-            return None
-        if self.current_step_index < 0 or self.current_step_index >= len(self.steps):
-            return None
-        return self.steps[self.current_step_index]
-
-    def previous_step(self) -> CalculationStep | None:
-        if self.current_step_index <= 0:
-            return None
-        return self.steps[self.current_step_index - 1]
-
-    def next_step(self) -> CalculationStep | None:
-        next_index = self.current_step_index + 1
-        if next_index >= len(self.steps):
-            return None
-        return self.steps[next_index]
-
-    def advance(self) -> CalculationStep | None:
-        if self.current_step_index + 1 >= len(self.steps):
-            return None
-        self.current_step_index += 1
-        return self.current_step()
+    terminated: bool = False
 
     def to_json(self) -> dict:
         return {
             "name": self.name,
             "directory": str(self.directory),
+            "input_file": str(self.input_file),
             "charge": self.charge,
             "multiplicity": self.multiplicity,
-            "source_input": str(self.source_input) if self.source_input is not None else None,
             "steps": [step.to_json() for step in self.steps],
             "current_step_index": self.current_step_index,
+            "terminated": self.terminated,
         }
 
     @classmethod
@@ -92,9 +72,23 @@ class WorkflowCase:
         return cls(
             name=data["name"],
             directory=Path(data["directory"]),
+            input_file=Path(data["input_file"]),
             charge=int(data["charge"]),
             multiplicity=int(data["multiplicity"]),
-            source_input=Path(data["source_input"]) if data.get("source_input") else None,
             steps=[CalculationStep.from_json(step_data) for step_data in data.get("steps", [])],
             current_step_index=data.get("current_step_index", 0),
+            terminated=data.get("terminated", False),
         )
+    
+    def get_current_step(self) -> CalculationStep | None:
+        if 0 <= self.current_step_index < len(self.steps):
+            return self.steps[self.current_step_index]
+        raise IndexError("Current step index is out of range.")
+    
+    def advance(self):
+        if self.terminated:
+            return
+        if self.current_step_index < len(self.steps) - 1:
+            self.current_step_index += 1
+        else:
+            self.terminated = True
