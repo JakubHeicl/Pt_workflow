@@ -13,6 +13,6 @@ DZ_EXTENSION = "dz"
 SCHEDULER = "slurm" # Options: "slurm", "local", "pbs"
 PARTITION = "q_kchfo"
 NUMBER_OF_CORES = 16
-MEMORY = 2000 # in MB   
+MEMORY = 4000 # in MB   
 
 USER = "heiclj"
