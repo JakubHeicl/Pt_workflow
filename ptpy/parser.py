@@ -49,7 +49,6 @@ def get_last_geometry(log_file: Path) -> Geometry:
             
             if "Standard orientation:" in line and stationary_point_found:
                 index = i
-                break
 
         if index is None:
             raise RuntimeError(f"Could not find geometry in log file {log_file}. Please check the log file for details.")
@@ -67,7 +66,7 @@ def get_last_geometry(log_file: Path) -> Geometry:
             if parts[0].isdigit():
                 inside_geometry_block = True
                 atoms.append(Atom(
-                    atomic_number = int(parts[2]),
+                    atomic_number = int(parts[1]),
                     x = float(parts[3]),
                     y = float(parts[4]),
                     z = float(parts[5]),
