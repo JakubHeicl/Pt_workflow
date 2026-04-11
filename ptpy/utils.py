@@ -125,6 +125,8 @@ def make_dz_file(com_file: Path, chk_file: Path, geometry_lines: list[str], atom
     for geometry_line in geometry_lines:
         content += geometry_line + "\n"
 
+    content += "\n"
+
     relevant_atoms = ["O", "N", "C", "H", "F"]
 
     for atom in atom_symbols:
