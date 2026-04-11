@@ -18,19 +18,21 @@ def run_lanl_optimization(case: WorkflowCase, scheduler: Scheduler):
 
     folder.mkdir(parents=True, exist_ok=True)
     lanl_input_file = Path(folder, name).with_suffix(".com")
+    lanl_chk_file = Path(folder, name).with_suffix(".chk")
     lanl_output_file = Path(folder, name).with_suffix(".log")
 
     if input_file.suffix == ".xyz":
-        xyz_to_lanl(input_file, lanl_input_file, case.charge, case.multiplicity)
+        xyz_to_lanl(input_file, lanl_input_file, lanl_chk_file, case.charge, case.multiplicity)
     elif input_file.suffix == ".com":
-        com_to_lanl(input_file, lanl_input_file)
+        com_to_lanl(input_file, lanl_input_file, lanl_chk_file)
     else:
         raise ValueError(f"Unsupported input file format: {input_file.suffix}")
     
-    job_id = scheduler.submit_job(folder, lanl_input_file)
+    job_id = scheduler.submit_job(folder, lanl_input_file, lanl_chk_file)
 
     current_step.job_id = job_id
     current_step.input_file = lanl_input_file
+    current_step.chk_file = lanl_chk_file
     current_step.log_file = lanl_output_file
     current_step.status = StepStatus.RUNNING
     print(f"Submitted LANL optimization for case {case.name} with job ID {job_id}.")
@@ -60,7 +62,7 @@ def run_dz_optimization(case: WorkflowCase, scheduler: Scheduler):
 
     make_dz_file(dz_input_file, dz_chk_file, last_geometry.geometry_lines, last_geometry.atoms_symbols, case.charge, case.multiplicity)
 
-    job_id = scheduler.submit_job(folder, dz_input_file)
+    job_id = scheduler.submit_job(folder, dz_input_file, dz_chk_file)
 
     current_step.job_id = job_id
     current_step.input_file = dz_input_file

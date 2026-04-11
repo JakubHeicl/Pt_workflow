@@ -50,18 +50,18 @@ def getpot(name, atom, bases_folder: Path):
         print(f"I dont have potential for {name} for the atom {atom}")
         return f"({atom})"
 
-def xyz_to_lanl(input_file, output_file, charge, mult):
+def xyz_to_lanl(input_file, output_file, chk_file, charge, mult):
     input_path = Path(input_file)
     output_path = Path(output_file)
     lines = input_path.read_text(encoding="utf-8").splitlines()
     geometry_lines = [f"{line}\n" for line in lines[2:]]
-    _write_lanl_input(output_path, Path(output_file).with_suffix(".chk"), int(charge), int(mult), geometry_lines)
+    _write_lanl_input(output_path, chk_file, int(charge), int(mult), geometry_lines)
 
-def com_to_lanl(input_file, output_file):
+def com_to_lanl(input_file, output_file, chk_file):
     input_path = Path(input_file)
     output_path = Path(output_file)
     charge, mult, geometry_lines = _extract_com_data(input_path)
-    _write_lanl_input(output_path, Path(output_file).with_suffix(".chk"), charge, mult, geometry_lines)
+    _write_lanl_input(output_path, chk_file, charge, mult, geometry_lines)
     return charge, mult
 
 def get_charge_and_mult_from_com(input_file):

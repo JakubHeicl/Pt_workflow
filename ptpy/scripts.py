@@ -9,7 +9,7 @@ spust_g16_script = Template("""#!/bin/bash
 #SBATCH --mem=${memory}mb
 #SBATCH -w ${node}
 #SBATCH -p ${partition}
-
+                            
 G16_DIR="g16"
 g16root=/opt/QChem
 mkdir -p /scratch/heiclj
@@ -18,8 +18,8 @@ export LD_LIBRARY_PATH="{$$g16root/g16}:$${LD_LIBRARY_PATH}"
 . $$g16root/g16/bsd/g16.profile
 
 g16 $$1
-                            
-formchk ar5mol2_lanl.chk ar5mol2_lanl.fchk
+                                                     
+formchk ${chk_file}
 """)
 
 lanl_header = Template("""%mem=${memory}MB

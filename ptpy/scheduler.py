@@ -79,7 +79,7 @@ class Scheduler:
                 return True
         return False
 
-    def submit_job(self, cwd: Path, output_file: Path) -> str:
+    def submit_job(self, cwd: Path, com_file: Path, chk_file: Path) -> str:
 
         nodes = self.get_nodes(status="idle")
         if not nodes:
@@ -91,8 +91,9 @@ class Scheduler:
 
         job_script = spust_g16_script.substitute(
             num_cpus=NUMBER_OF_CORES,
-            job_name=output_file.stem,
+            job_name=com_file.stem,
             memory=MEMORY,
+            chk_file=chk_file.name,
             partition=PARTITION,
             node=nodes[0]
         )
@@ -101,7 +102,7 @@ class Scheduler:
         with open(job_script_path, "w") as f:
             f.write(job_script)
         subprocess.run(["chmod", "a+x", job_script_path], check=True)
-        result = subprocess.run([self.submit_command, job_script_path.name, output_file.name], capture_output=True, text=True, cwd=cwd)
+        result = subprocess.run([self.submit_command, job_script_path.name, com_file.name], capture_output=True, text=True, cwd=cwd)
 
         if result.returncode != 0:
             raise RuntimeError(f"Failed to submit job: {result.stderr}")
