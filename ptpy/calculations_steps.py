@@ -88,10 +88,13 @@ def check_optimization(case: WorkflowCase, scheduler: Scheduler):
     formchk_file = Path(current_step.folder, f"{current_step.input_file.with_suffix('.fchk')}")
 
     if not formchk_file.exists():
-        print(f"Formchk file {formchk_file} not found for {current_step.calculation_type.value} of case {case.name}. Marking as failed.")
-        current_step.status = StepStatus.FAILED
-        return
-    
+        print(f"Formchk file {formchk_file} for {current_step.calculation_type.value} of case {case.name} might still not be ready. Waiting...")
+        time.sleep(5)
+        if not formchk_file.exists():
+            print(f"Formchk file {formchk_file} for {current_step.calculation_type.value} of case {case.name} is still not available after waiting. Marking as failed.")
+            current_step.status = StepStatus.FAILED
+            return
+
     while formchk_file.stat().st_mtime + 15 < time.time():
         print(f"Formchk file {formchk_file} for {current_step.calculation_type.value} of case {case.name} might still not be ready. Waiting...")
         time.sleep(2)
