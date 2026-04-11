@@ -87,6 +87,10 @@ def check_optimization(case: WorkflowCase, scheduler: Scheduler):
         if termination_status == TerminationStatus.SUCCESS:
             current_step.status = StepStatus.COMPLETED
             case.last_geometry = get_last_geometry(current_step.log_file)
+            slurm_output = Path(current_step.folder, f"slurm-{job_id}.out")
+            slurm_output.unlink(missing_ok=True)
+            fort_file = Path(current_step.folder, "fort.7")
+            fort_file.unlink(missing_ok=True)
             print(f"{current_step.calculation_type.value} for case {case.name} completed successfully.")
         else:
             current_step.status = StepStatus.FAILED

@@ -78,7 +78,7 @@ def run_step(case: WorkflowCase, scheduler: Scheduler):
     
     run_function = CALCULATION_TYPE_TO_RUN_STEP.get(current_step.calculation_type)
     if run_function is None:
-        raise ValueError(f"Unknown calculation type: {current_step.calculation_type}")
+        raise NotImplementedError(f"Unknown run step type: {current_step.calculation_type}")
     
     run_function(case, scheduler)
         
@@ -88,7 +88,7 @@ def check_step(case: WorkflowCase, scheduler: Scheduler):
     
     check_function = CALCULATION_TYPE_TO_CHECK_STEP.get(current_step.calculation_type)
     if check_function is None:
-        raise ValueError(f"Unknown calculation type: {current_step.calculation_type}")
+        raise NotImplementedError(f"Unknown check step type: {current_step.calculation_type}")
     
     check_function(case, scheduler)
 
