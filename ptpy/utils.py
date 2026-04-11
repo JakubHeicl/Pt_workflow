@@ -3,7 +3,7 @@ from pathlib import Path
 from .scripts import lanl_header, dz_header, cube_header
 from .config import MEMORY, NUMBER_OF_CORES, BASES_FOLDER
 
-_SYMBOLS = {
+_SYMBOLS: list[str] = [
     "X",
     "H", "He",
     "Li", "Be", "B", "C", "N", "O", "F", "Ne",
@@ -18,7 +18,7 @@ _SYMBOLS = {
     "Fr", "Ra", "Ac", "Th", "Pa", "U", "Np", "Pu", "Am", "Cm", "Bk", "Cf", "Es", "Fm", "Md", "No", "Lr",
     "Rf", "Db", "Sg", "Bh", "Hs", "Mt", "Ds", "Rg", "Cn",
     "Nh", "Fl", "Mc", "Lv", "Ts", "Og",
-}
+]
 
 def getbasis(name, atom, bases_folder: Path):
     
