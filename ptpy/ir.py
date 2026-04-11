@@ -2,6 +2,57 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from enum import Enum
 
+from .utils import _SYMBOLS
+
+@dataclass
+class Atom:
+    atomic_number: int
+    x: float
+    y: float
+    z: float
+
+    @property
+    def symbol(self) -> str:
+        return _SYMBOLS[self.atomic_number]
+    
+    def to_json(self) -> dict:
+        return {
+            "atomic_number": self.atomic_number,
+            "x": self.x,
+            "y": self.y,
+            "z": self.z,
+        }
+    
+    @classmethod
+    def from_json(cls, data: dict) -> "Atom":
+        return cls(
+            atomic_number=data["atomic_number"],
+            x=data["x"],
+            y=data["y"],
+            z=data["z"]
+        )
+
+@dataclass
+class Geometry:
+    atoms: list[Atom]
+
+    def to_json(self) -> dict:
+        return {
+            "atoms": [atom.to_json() for atom in self.atoms]
+        }
+
+    @classmethod
+    def from_json(cls, data: dict) -> "Geometry":
+        return cls(
+            atoms=[Atom.from_json(atom_data) for atom_data in data.get("atoms", [])]
+        )
+    
+    @property
+    def geometry_lines(self) -> list[str]:
+        return [f"{atom.symbol}     {atom.x}  {atom.y}  {atom.z}" for atom in self.atoms]
+    
+    def atoms_symbols(self) -> set[str]:
+        return set(atom.symbol for atom in self.atoms)
 
 class CalculationType(Enum):
     LANL_OPT = "lanl_opt"
@@ -16,7 +67,6 @@ class StepStatus(Enum):
     RUNNING = "running"
     COMPLETED = "completed"
     FAILED = "failed"
-
 
 @dataclass
 class CalculationStep:
@@ -60,6 +110,7 @@ class WorkflowCase:
     input_file: Path
     charge: int
     multiplicity: int
+    last_geometry: Geometry | None = None
     steps: list[CalculationStep] = field(default_factory=list)
     current_step_index: int = 0
     terminated: bool = False
@@ -71,6 +122,7 @@ class WorkflowCase:
             "input_file": str(self.input_file),
             "charge": self.charge,
             "multiplicity": self.multiplicity,
+            "last_geometry": self.last_geometry.to_json() if self.last_geometry is not None else None,
             "steps": [step.to_json() for step in self.steps],
             "current_step_index": self.current_step_index,
             "terminated": self.terminated,
@@ -87,6 +139,7 @@ class WorkflowCase:
             steps=[CalculationStep.from_json(step_data) for step_data in data.get("steps", [])],
             current_step_index=data.get("current_step_index", 0),
             terminated=data.get("terminated", False),
+            last_geometry = Geometry.from_json(data.get("last_geometry")) if data.get("last_geometry") is not None else None,
         )
     
     def get_current_step(self) -> CalculationStep | None:

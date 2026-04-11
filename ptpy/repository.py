@@ -1,7 +1,8 @@
-from ir import WorkflowCase
 from dataclasses import dataclass, field
 from pathlib import Path
 import json
+
+from .ir import WorkflowCase
 
 
 @dataclass

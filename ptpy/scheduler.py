@@ -1,8 +1,9 @@
 from enum import Enum
 from pathlib import Path
 import subprocess
-from scripts import spust_g16_script
-from config import SCHEDULER, PARTITION, NUMBER_OF_CORES, MEMORY, USER
+
+from .scripts import spust_g16_script
+from .config import SCHEDULER, PARTITION, NUMBER_OF_CORES, MEMORY, USER
 
 class SchedulerType(Enum):
     SLURM = "slurm"

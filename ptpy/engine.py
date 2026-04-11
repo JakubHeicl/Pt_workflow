@@ -1,11 +1,11 @@
-from repository import Repository
-from ir import WorkflowCase, CalculationStep, StepStatus, CalculationType
 from pathlib import Path
-from config import REPOSITORY_FOLDER, RUN_FOLDER, INPUT_FOLDER, SCHEDULER
-from utils import get_charge_and_mult_from_com
-from calculations_steps import run_lanl_optimization, run_dz_optimization
-from scheduler import Scheduler 
-from parser import get_log_termination_status, TerminationStatus
+
+from .repository import Repository
+from .ir import WorkflowCase, CalculationStep, StepStatus, CalculationType
+from .config import REPOSITORY_FOLDER, RUN_FOLDER, INPUT_FOLDER, SCHEDULER
+from .utils import get_charge_and_mult_from_com
+from .calculations_steps import CALCULATION_TYPE_TO_CHECK_STEP, CALCULATION_TYPE_TO_RUN_STEP
+from .scheduler import Scheduler 
 
 def add_to_repository_from_input_folder(repo: Repository, input_folder: Path):
     for input_file in input_folder.glob("*.xyz"):
@@ -75,49 +75,23 @@ def run_step(case: WorkflowCase, scheduler: Scheduler):
     if input(f"Do you want to run {current_step.calculation_type.value} for case {case.name}? (y/n): ").lower() != "y":
         return
     
-    if current_step.calculation_type == CalculationType.LANL_OPT:
-        run_lanl_optimization(case, scheduler)
-    elif current_step.calculation_type == CalculationType.DZ_OPT:
-        run_dz_optimization(case, scheduler)
-    elif current_step.calculation_type == CalculationType.AIM_ANALYSIS:
-        raise NotImplementedError("AIM analysis is not implemented yet.")   
-    elif current_step.calculation_type == CalculationType.LIGAND_ENERGIES_CALCULATION:
-        raise NotImplementedError("Ligand energies calculation is not implemented yet.")
-    elif current_step.calculation_type == CalculationType.ALIP_CALCULATION:
-        raise NotImplementedError("ALIP calculation is not implemented yet.")
-    elif current_step.calculation_type == CalculationType.ELSTAT_CALCULATION:
-        raise NotImplementedError("Electrostatic potential calculation is not implemented yet.")
-    else:
+    run_function = CALCULATION_TYPE_TO_RUN_STEP.get(current_step.calculation_type)
+    if run_function is None:
         raise ValueError(f"Unknown calculation type: {current_step.calculation_type}")
+    
+    run_function(case, scheduler)
         
 def check_step(case: WorkflowCase, scheduler: Scheduler):
-    
+
     current_step = case.get_current_step()
-    job_id = current_step.job_id
-
-    if not job_id:
-        print(f"No job ID found for {current_step.calculation_type.value} of case {case.name}. Marking as failed.")
-        current_step.status = StepStatus.FAILED
-        return
-
-    if scheduler.is_job_running(job_id):
-        return
     
-    try:
-        termination_status = get_log_termination_status(case)
-        if termination_status == TerminationStatus.SUCCESS:
-            current_step.status = StepStatus.COMPLETED
-            print(f"{current_step.calculation_type.value} for case {case.name} completed successfully.")
-        else:
-            current_step.status = StepStatus.FAILED
-            print(f"{current_step.calculation_type.value} for case {case.name} failed. Please check the logs for details.")
-    except Exception as e:
-        current_step.status = StepStatus.FAILED
-        print(f"Error while checking termination status for {current_step.calculation_type.value} of case {case.name}: {e}")
+    check_function = CALCULATION_TYPE_TO_CHECK_STEP.get(current_step.calculation_type)
+    if check_function is None:
+        raise ValueError(f"Unknown calculation type: {current_step.calculation_type}")
     
+    check_function(case, scheduler)
 
-
-if __name__ == "__main__":
+def run():
     INPUT_FOLDER.mkdir(parents=True, exist_ok=True)
     repo = Repository()
     scheduler = Scheduler(SCHEDULER)
