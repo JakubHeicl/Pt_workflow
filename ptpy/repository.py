@@ -24,7 +24,10 @@ class Repository:
         self.add_case(WorkflowCase.from_json(data))
 
     def save_to_folder(self, folder_path: Path):
-        folder_path.mkdir(parents=True, exist_ok=True)
+
+        if not folder_path.exists():
+            raise RuntimeError(f"Folder {folder_path} does not exist. Cannot save repository.")
+
         for case in self.cases:
             case_file = Path(folder_path, case.name).with_suffix(".json")
             with open(case_file, "w", encoding="utf-8") as f:
@@ -32,7 +35,7 @@ class Repository:
 
     def load_from_folder(self, folder_path: Path):
         if not folder_path.exists():
-            return
+            raise RuntimeError(f"Folder {folder_path} does not exist. Cannot load repository.")
         for case_file in folder_path.glob("*.json"):
             with open(case_file, "r", encoding="utf-8") as f:
                 data = json.load(f)

@@ -98,7 +98,7 @@ def _is_geometry_line(line: str) -> bool:
     parts = line.strip().split()
     return len(parts) > 1 and parts[0].capitalize() in _SYMBOLS
 
-def _write_lanl_input(output_file: Path, charge: int, mult: int, geometry_lines: list[str]) -> None:
+def _write_lanl_input(com_file: Path, charge: int, mult: int, geometry_lines: list[str]) -> None:
     header = lanl_header.substitute(
         memory=MEMORY,
         num_cpus=NUMBER_OF_CORES,
@@ -107,14 +107,14 @@ def _write_lanl_input(output_file: Path, charge: int, mult: int, geometry_lines:
         mult=mult
     )
     content = header + "".join(geometry_lines) + "\n"
-    output_file.write_text(content, encoding="utf-8")
+    com_file.write_text(content, encoding="utf-8")
 
-def make_dz_file(output_file: Path, geometry_lines: list[str], atom_symbols: set[str], charge: int, mult: int, bases_folder: Path = BASES_FOLDER):
+def make_dz_file(com_file: Path, chk_file: Path, geometry_lines: list[str], atom_symbols: set[str], charge: int, mult: int, bases_folder: Path = BASES_FOLDER):
     
     header = dz_header.substitute(
         memory=MEMORY,
         num_cpus=NUMBER_OF_CORES,
-        check_file=output_file.with_suffix(".chk").name,
+        check_file=chk_file.name,
         job_description="DZ optimization and frequency calculation",
         charge=charge,
         mult=mult
@@ -131,19 +131,19 @@ def make_dz_file(output_file: Path, geometry_lines: list[str], atom_symbols: set
     content += "\n6-31+G(d)\n****\n"
 
     for atom in atom_symbols:
-        content += getbasis(output_file.stem, atom, bases_folder)
+        content += getbasis(com_file.stem, atom, bases_folder)
 
     content += "\n"
 
     for atom in atom_symbols:
-        content += getpot(output_file.stem, atom, bases_folder)
+        content += getpot(com_file.stem, atom, bases_folder)
 
     content += "\n\n"
 
     header = cube_header.substitute(
         memory=MEMORY,
         num_cpus=NUMBER_OF_CORES,
-        check_file=output_file.with_suffix(".chk").name,
+        check_file=chk_file.name,
         job_description="Cube file generation for density and potential",
         charge=charge,
         mult=mult
@@ -158,17 +158,17 @@ def make_dz_file(output_file: Path, geometry_lines: list[str], atom_symbols: set
     content += "\n6-31+G(d)\n****\n"
 
     for atom in atom_symbols:
-        content += getbasis(output_file.stem, atom, bases_folder)
+        content += getbasis(com_file.stem, atom, bases_folder)
 
     content += "\n"
 
     for atom in atom_symbols:
-        content += getpot(output_file.stem, atom, bases_folder)
+        content += getpot(com_file.stem, atom, bases_folder)
 
-    content += f"\n{output_file.with_suffix('.pot').name}\n{output_file.with_suffix('.den').name}\n\n"
+    content += f"\n{com_file.with_suffix('.pot').name}\n{com_file.with_suffix('.den').name}\n\n"
 
-    content += f"$NBO archive plot file={output_file.stem} $END\n"
+    content += f"$NBO archive plot file={com_file.stem} $END\n"
 
-    with open(output_file, "w") as file:
+    with open(com_file, "w") as file:
         file.write(content)
 

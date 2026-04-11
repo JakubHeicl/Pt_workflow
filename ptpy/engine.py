@@ -93,6 +93,9 @@ def check_step(case: WorkflowCase, scheduler: Scheduler):
 
 def run():
     INPUT_FOLDER.mkdir(parents=True, exist_ok=True)
+    REPOSITORY_FOLDER.mkdir(parents=True, exist_ok=True)
+    RUN_FOLDER.mkdir(parents=True, exist_ok=True)
+
     repo = Repository()
     scheduler = Scheduler(SCHEDULER)
 
@@ -103,3 +106,5 @@ def run():
         proccess_case(case, scheduler)
 
     repo.save_to_folder(REPOSITORY_FOLDER)
+
+
