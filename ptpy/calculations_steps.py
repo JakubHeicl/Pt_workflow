@@ -95,7 +95,7 @@ def check_optimization(case: WorkflowCase, scheduler: Scheduler):
             current_step.status = StepStatus.FAILED
             return
 
-    while formchk_file.stat().st_mtime + 15 < time.time():
+    while formchk_file.stat().st_mtime + 15 > time.time():
         print(f"Formchk file {formchk_file} for {current_step.calculation_type.value} of case {case.name} might still not be ready. Waiting...")
         time.sleep(2)
 
