@@ -107,4 +107,19 @@ def run():
 
     repo.save_to_folder(REPOSITORY_FOLDER)
 
+def show_status():
 
+    if not REPOSITORY_FOLDER.exists():
+        print("No repository found. Please run the workflow first to create the repository.")
+        return
+
+    repo = Repository()
+    repo.load_from_folder(REPOSITORY_FOLDER)
+
+    for case in repo.cases:
+        message = f"Case: {case.name} is finished: {case.terminated}"
+        if not case.terminated:
+            current_step = case.get_current_step()
+            message += f" | Current step: {current_step.calculation_type.value} - {current_step.status.value}"
+        print(message)
+        
