@@ -3,7 +3,7 @@ import shutil
 import time
 
 from .ir import WorkflowCase, CalculationStep, StepStatus, CalculationType, Repository
-from .config import REPOSITORY_FOLDER, RUN_FOLDER, INPUT_FOLDER, SCHEDULER
+from .config import AIM_CLUSTER, AIM_FOLDER, REPOSITORY_FOLDER, RUN_FOLDER, INPUT_FOLDER, SCHEDULER
 from .utils import get_charge_and_mult_from_com
 from .calculations_steps import CALCULATION_TYPE_TO_CHECK_STEP, CALCULATION_TYPE_TO_RUN_STEP
 from .scheduler import Scheduler
@@ -149,4 +149,6 @@ def restore():
     if RUN_FOLDER.exists():
         print(f"Removing run folder '{RUN_FOLDER}'...")
         shutil.rmtree(RUN_FOLDER, ignore_errors=True)
+
+    scheduler.run_remote_command(AIM_CLUSTER, f"rm -rf {AIM_FOLDER}/*"  )
         

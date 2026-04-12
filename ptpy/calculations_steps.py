@@ -153,7 +153,7 @@ def check_optimization(case: WorkflowCase, scheduler: Scheduler):
         print(f"Error while checking termination status for {current_step.calculation_type.value} of case {case.name}: {e}")
 
 def check_aim_analysis(case: WorkflowCase, scheduler: Scheduler):
-    raise NotImplementedError("Checking AIM analysis is not implemented yet. Please check the cluster job and logs manually.")
+    pass
 
 CALCULATION_TYPE_TO_RUN_STEP = {
     CalculationType.LANL_OPT: run_lanl_optimization,
