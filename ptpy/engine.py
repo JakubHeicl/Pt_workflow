@@ -150,5 +150,6 @@ def restore():
         print(f"Removing run folder '{RUN_FOLDER}'...")
         shutil.rmtree(RUN_FOLDER, ignore_errors=True)
 
-    scheduler.run_remote_command(AIM_CLUSTER, f"rm -rf {AIM_FOLDER}/*"  )
+    if input(f"The following script will be used 'rm -rf {AIM_FOLDER}/*'. Do you want to clear the AIM cluster folder as well? (y/n): ").lower() == "y":
+        scheduler.run_remote_command(AIM_CLUSTER, f"rm -rf {AIM_FOLDER}/*"  )
         
