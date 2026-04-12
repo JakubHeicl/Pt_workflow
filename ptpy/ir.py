@@ -96,6 +96,7 @@ class CalculationStep:
             "log_file": str(self.log_file) if self.log_file is not None else None,
             "chk_file": str(self.chk_file) if self.chk_file is not None else None,
             "fchk_file": str(self.fchk_file) if self.fchk_file is not None else None,
+            "remote_folder": str(self.remote_folder) if self.remote_folder is not None else None,
             "remote_fchk_file": str(self.remote_fchk_file) if self.remote_fchk_file is not None else None,
         }
 
@@ -111,6 +112,7 @@ class CalculationStep:
             log_file=Path(data["log_file"]) if data.get("log_file") is not None else None,
             chk_file=Path(data["chk_file"]) if data.get("chk_file") is not None else None,
             fchk_file=Path(data["fchk_file"]) if data.get("fchk_file") is not None else None,
+            remote_folder=Path(data["remote_folder"]) if data.get("remote_folder") is not None else None,
             remote_fchk_file=Path(data["remote_fchk_file"]) if data.get("remote_fchk_file") is not None else None,
         )
 
@@ -219,6 +221,8 @@ class Repository:
         if not folder_path.exists():
             raise RuntimeError(f"Folder {folder_path} does not exist. Cannot load repository.")
         for case_file in folder_path.glob("*.json"):
+            if case_file.name == METADATA_FILE.name:
+                continue
             with open(case_file, "r", encoding="utf-8") as f:
                 data = json.load(f)
                 self.add_from_json(data)

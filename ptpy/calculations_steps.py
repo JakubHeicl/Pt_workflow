@@ -10,7 +10,7 @@ from .config import AIM_CLUSTER, AIM_FOLDER, LANL_EXTENSION, DZ_EXTENSION, NUMBE
 from .scripts import aim_analysis_script
 from .logger import Logger
 
-def prepare_lanl_optimization(case: WorkflowCase):
+def prepare_lanl_optimization(case: WorkflowCase, scheduler: Scheduler):
 
     current_step = case.get_current_step()
     folder = current_step.folder
@@ -170,6 +170,7 @@ def run_aim_analysis(case: WorkflowCase, scheduler: Scheduler, logger: Logger):
         return
     
     current_step.status = StepStatus.RUNNING
+    case.get_repository().metadata["running_aim"] = case.get_repository().metadata.get("running_aim", 0) + 1
     logger.log(f"Submitted AIM analysis for case {case.name} on cluster {AIM_CLUSTER}.")
 
 def check_optimization(case: WorkflowCase, scheduler: Scheduler, logger: Logger):

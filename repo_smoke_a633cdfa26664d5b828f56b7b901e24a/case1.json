@@ -1,0 +1,24 @@
+{
+    "name": "case1",
+    "directory": "d:\\Python\\Pt_workflow\\repo_smoke_a633cdfa26664d5b828f56b7b901e24a\\runs\\case1",
+    "input_file": "input_files\\case1.xyz",
+    "charge": 0,
+    "multiplicity": 1,
+    "last_geometry": null,
+    "steps": [
+        {
+            "calculation_type": "lanl_opt",
+            "status": "pending",
+            "job_id": null,
+            "folder": "d:\\Python\\Pt_workflow\\repo_smoke_a633cdfa26664d5b828f56b7b901e24a\\runs\\case1\\lanl_opt",
+            "input_file": null,
+            "log_file": null,
+            "chk_file": null,
+            "fchk_file": null,
+            "remote_folder": null,
+            "remote_fchk_file": null
+        }
+    ],
+    "current_step_index": 0,
+    "terminated": false
+}

@@ -162,7 +162,7 @@ class Scheduler:
         print(f"Transferring file {file} to {remote_host}:{remote_path}...")
         if self.scheduler_type == SchedulerType.SLURM:
             try:
-                subprocess.run(["rsync", "-avz", file, f"{remote_host}:{remote_path}"])
+                subprocess.run(["rsync", "-avz", file, f"{remote_host}:{remote_path}"], check=True)
             except subprocess.CalledProcessError:
                 raise RemoteExecutionException(f"Failed to transfer file {file} to {remote_path}.")
         else:
