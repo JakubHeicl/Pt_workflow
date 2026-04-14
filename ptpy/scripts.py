@@ -21,7 +21,7 @@ g16 $$1
 formchk ${chk_file}
 """)
 
-aim_analysis_script = Template("cd ${folder} && nohup /Applications/QChem/AIMAll/aimqb.app/Contents/MacOS/aimqb -nogui -nproc=${num_cpus} -skipint=true ${fchk_file} > output.log 2>&1 </dev/null &")
+aim_analysis_script = Template("/bin/bash -lc 'cd ${folder} && nohup /Applications/QChem/AIMAll/aimqb.app/Contents/MacOS/aimqb -nogui -nproc=${num_cpus} -skipint=true ${fchk_file} > output.log 2>&1 </dev/null &'")
 
 lanl_header = Template("""%mem=${memory}MB
 %nprocshared=${num_cpus}
