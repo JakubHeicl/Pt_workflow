@@ -12,6 +12,7 @@ LOOP_SLEEP_TIME = 5 # in seconds
 
 LANL_EXTENSION = "lanl"
 DZ_EXTENSION = "dz" 
+LIGAND_EXTENSION = "ligands"
 
 AIM_CLUSTER = "heiclj@jupiter.karlov.mff.cuni.cz"
 AIM_FOLDER = "/Volumes/Home_2/Users_Ju/heiclj/ptpy_aim_calc"

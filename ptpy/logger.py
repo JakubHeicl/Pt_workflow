@@ -17,3 +17,12 @@ class Logger:
             return True
         
         return input(question + " (y/n): ").lower() == "y"
+    
+    def get_input(self, prompt: str) -> str:
+        
+        self.log(prompt)  # Log the prompt before getting input
+        answer = input()
+
+        self.log(f"User input: {answer}")  # Log the user's input
+
+        return answer 

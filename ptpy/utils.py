@@ -1,24 +1,8 @@
 from pathlib import Path
 
-from .scripts import lanl_header, dz_header, cube_header
+from .scripts import lanl_header, dz_header, cube_header, ligand_header
 from .config import MEMORY, NUMBER_OF_CORES_GAUSSAIN, BASES_FOLDER
-
-_SYMBOLS: list[str] = [
-    "X",
-    "H", "He",
-    "Li", "Be", "B", "C", "N", "O", "F", "Ne",
-    "Na", "Mg", "Al", "Si", "P", "S", "Cl", "Ar",
-    "K", "Ca", "Sc", "Ti", "V", "Cr", "Mn", "Fe", "Co", "Ni", "Cu", "Zn",
-    "Ga", "Ge", "As", "Se", "Br", "Kr",
-    "Rb", "Sr", "Y", "Zr", "Nb", "Mo", "Tc", "Ru", "Rh", "Pd", "Ag", "Cd",
-    "In", "Sn", "Sb", "Te", "I", "Xe",
-    "Cs", "Ba", "La", "Ce", "Pr", "Nd", "Pm", "Sm", "Eu", "Gd", "Tb", "Dy", "Ho", "Er", "Tm", "Yb", "Lu",
-    "Hf", "Ta", "W", "Re", "Os", "Ir", "Pt", "Au", "Hg",
-    "Tl", "Pb", "Bi", "Po", "At", "Rn",
-    "Fr", "Ra", "Ac", "Th", "Pa", "U", "Np", "Pu", "Am", "Cm", "Bk", "Cf", "Es", "Fm", "Md", "No", "Lr",
-    "Rf", "Db", "Sg", "Bh", "Hs", "Mt", "Ds", "Rg", "Cn",
-    "Nh", "Fl", "Mc", "Lv", "Ts", "Og",
-]
+from .ir import _SYMBOLS, Geometry
 
 def getbasis(name, atom, bases_folder: Path):
     
@@ -180,3 +164,106 @@ def make_dz_file(com_file: Path, chk_file: Path, geometry_lines: list[str], atom
     with open(com_file, "w") as file:
         file.write(content)
 
+def make_ligand_file(com_file: Path, chk_file: Path, geometry: Geometry, charge: int, mult: int):
+
+    with open(com_file, "w") as f:
+                    
+        for i, ligand in enumerate(geometry.ligands):
+            
+            relevant_atoms = ["O", "N", "C", "H", "F"]
+            unique_atoms = []
+            for atom in geometry.atoms:
+                if atom not in ligand:
+                    if atom.symbol not in unique_atoms:
+                        unique_atoms.append(atom.symbol)
+            
+            ligand_charge = geometry.ligand_charges[i] 
+            
+            for j, ligand2 in enumerate(geometry.ligands):
+                if i == j:
+                    continue
+                if ligand == ligand2:
+                    ligand_charge += geometry.ligand_charges[j]
+        
+            if i != 0:
+                f.write("--Link1--\n")
+                
+            f.write(ligand_header.substitute(
+                memory=MEMORY,
+                num_cpus=NUMBER_OF_CORES_GAUSSAIN,
+                check_file=chk_file.name,
+                job_description=f"Ligand {i+1} optimization",
+                charge=charge - ligand_charge,
+                mult=mult,
+                cards="pseudo=cards " if any(atom not in relevant_atoms for atom in unique_atoms) else ""
+            ))
+            for atom in geometry.atoms:
+                if atom not in ligand:
+                    f.write(f" {atom.symbol:<5}    {atom.x:>10.6f}  {atom.y:>10.6f}  {atom.z:>10.6f}\n")
+                else:
+                    #final_file.write(f" {atom.symbol}-Bq    {atom.x:>10.6f}  {atom.y:>10.6f}  {atom.z:>10.6f}\n")
+                    pass
+                    
+            f.write("\n")
+            
+            for atom in unique_atoms:
+                if atom in relevant_atoms:
+                    f.write(atom + " ")
+            
+            if any(atom in relevant_atoms for atom in unique_atoms):
+                f.write("\n6-31+G(d)\n")
+                f.write("****\n")
+                
+            for atom in unique_atoms:
+                f.write(getbasis(com_file.stem, atom))
+                
+            f.write("\n")
+            
+            for atom in unique_atoms:
+                f.write(getpot(com_file.stem, atom))
+                
+            f.write("\n")
+            f.write("--Link1--\n")
+            f.write(ligand_header.substitute(
+                memory=MEMORY,
+                num_cpus=NUMBER_OF_CORES_GAUSSAIN,
+                check_file=chk_file.name,
+                job_description=f"Ligand {i+1} optimization",
+                charge=ligand_charge,
+                mult=mult,
+                cards="pseudo=cards " if any(atom not in relevant_atoms for atom in unique_atoms) else ""
+            ))
+            
+            unique_atoms = []
+            for atom in geometry.atoms:
+                if atom in ligand:
+                    if atom.symbol not in unique_atoms:
+                        unique_atoms.append(atom.symbol)
+            
+            for atom in geometry.atoms:
+                if atom in ligand:
+                    f.write(f" {atom.symbol:<5}    {atom.x:>10.6f}  {atom.y:>10.6f}  {atom.z:>10.6f}\n")
+                else:
+                    #final_file.write(f" {atom.symbol}-Bq    {atom.x:>10.6f}  {atom.y:>10.6f}  {atom.z:>10.6f}\n")
+                    pass
+                    
+            f.write("\n")
+            relevant_atoms = ["O", "N", "C", "H", "F"]
+            
+            for atom in unique_atoms:
+                if atom in relevant_atoms:
+                    f.write(atom + " ")
+            
+            if any(atom in relevant_atoms for atom in unique_atoms):
+                f.write("\n6-31+G(d)\n")
+                f.write("****\n")
+            
+            for atom in unique_atoms:
+                f.write(getbasis(com_file.stem, atom))
+                
+            f.write("\n")
+            
+            for atom in unique_atoms:
+                f.write(getpot(com_file.stem, atom))
+                
+            f.write("\n")

@@ -53,3 +53,13 @@ ${job_description}
 
 ${charge} ${mult}
 """)
+
+ligand_header = Template("""%mem=${memory}MB
+%nprocshared=${num_cpus}
+%chk=${check_file}
+#p B3LYP/gen ${cards} EmpiricalDispersion=GD3BJ SCRF=(COSMO)
+ 
+${job_description}
+                         
+${charge} ${mult}
+""")

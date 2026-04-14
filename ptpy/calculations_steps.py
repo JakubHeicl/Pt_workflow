@@ -1,12 +1,13 @@
 from pathlib import Path
 import time
 import shutil
+import numpy as np
 
 from .ir import StepStatus, WorkflowCase, CalculationType
 from .parser import FileStatus, get_aim_status, get_last_geometry, get_log_termination_status
 from .scheduler import Scheduler, UnsificientResourcesException, RemoteExecutionException, SubmissionFailedException
-from .utils import xyz_to_lanl, com_to_lanl, make_dz_file
-from .config import AIM_CLUSTER, AIM_FOLDER, LANL_EXTENSION, DZ_EXTENSION, NUMBER_OF_CORES_AIM, MAX_RUNNING_AIM     
+from .utils import xyz_to_lanl, com_to_lanl, make_dz_file, make_ligand_file
+from .config import AIM_CLUSTER, AIM_FOLDER, LANL_EXTENSION, DZ_EXTENSION, LIGAND_EXTENSION, NUMBER_OF_CORES_AIM, MAX_RUNNING_AIM     
 from .scripts import aim_analysis_script
 from .logger import Logger
 
@@ -39,40 +40,13 @@ def prepare_lanl_optimization(case: WorkflowCase, scheduler: Scheduler):
 
     current_step.status = StepStatus.NOT_SUBMITED
 
-def run_lanl_optimization(case: WorkflowCase, scheduler: Scheduler, logger: Logger):
-
-    current_step = case.get_current_step()
-    folder = current_step.folder
-    lanl_input_file = current_step.local_files.get("com")
-    lanl_chk_file = current_step.local_files.get("chk")
-
-    try:
-        job_id = scheduler.submit_job(folder, lanl_input_file, lanl_chk_file)
-    except UnsificientResourcesException:
-        logger.log(f"Insufficient resources to run LANL optimization for case {case.name}. Trying again later...")
-        current_step.status = StepStatus.NOT_SUBMITED
-        return
-    except SubmissionFailedException:
-        logger.log(f"Failed to submit LANL optimization job for case {case.name}. Trying again later...")
-        current_step.status = StepStatus.NOT_SUBMITED
-        return
-
-    current_step.job_id = job_id
-    
-    current_step.status = StepStatus.RUNNING
-    logger.log(f"Submitted LANL optimization for case {case.name} with job ID {job_id}.")
-
 def prepare_dz_optimization(case: WorkflowCase, scheduler: Scheduler):
 
     current_step = case.get_current_step()
     folder = current_step.folder
-    previous_step = case.get_previous_step()
 
     if current_step.calculation_type != CalculationType.DZ_OPT:
         raise ValueError(f"Expected DZ OPTIMIZATION step, got {current_step.calculation_type}.")
-    
-    if previous_step.calculation_type != CalculationType.LANL_OPT:
-        raise ValueError(f"Expected previous step to be LANL OPTIMIZATION, got {previous_step.calculation_type}.")
     
     last_geometry = case.last_geometry
     if last_geometry is None:
@@ -92,29 +66,6 @@ def prepare_dz_optimization(case: WorkflowCase, scheduler: Scheduler):
     current_step.local_files["log"] = dz_log_file
 
     current_step.status = StepStatus.NOT_SUBMITED
-
-def run_dz_optimization(case: WorkflowCase, scheduler: Scheduler, logger: Logger):
-
-    current_step = case.get_current_step()
-    folder = current_step.folder
-    dz_input_file = current_step.local_files.get("com")
-    dz_chk_file = current_step.local_files.get("chk")
-
-    try:
-        job_id = scheduler.submit_job(folder, dz_input_file, dz_chk_file)
-    except UnsificientResourcesException:
-        logger.log(f"Insufficient resources to run DZ optimization for case {case.name}. Trying again later...")
-        current_step.status = StepStatus.NOT_SUBMITED
-        return
-    except SubmissionFailedException:
-        logger.log(f"Failed to submit DZ optimization job for case {case.name}. Trying again later...")
-        current_step.status = StepStatus.NOT_SUBMITED
-        return
-    
-    current_step.job_id = job_id
-    
-    current_step.status = StepStatus.RUNNING
-    logger.log(f"Submitted DZ optimization for case {case.name} with job ID {job_id}.")
     
 def prepare_aim_analysis(case: WorkflowCase, scheduler: Scheduler):
 
@@ -174,7 +125,79 @@ def run_aim_analysis(case: WorkflowCase, scheduler: Scheduler, logger: Logger):
     case.get_repository().metadata["running_aim"] = case.get_repository().metadata.get("running_aim", 0) + 1
     logger.log(f"Submitted AIM analysis for case {case.name} on cluster {AIM_CLUSTER}.")
 
-def check_optimization(case: WorkflowCase, scheduler: Scheduler, logger: Logger):
+def prepare_ligand_energies(case: WorkflowCase, scheduler: Scheduler, logger: Logger):
+
+    geometry = case.last_geometry
+
+    if geometry is None:
+        raise ValueError(f"No geometry found for case {case.name}. Cannot run ligand energies calculation.")
+
+    if not logger.verbose:
+        logger.log("Verbose mode is off. To proceed with ligand energies calculation, please turn on verbose mode to see the ligands and confirm that they are correct.")
+        return
+
+    for i, _ in enumerate(geometry.ligands): logger.log(f"Ligand for {geometry.pt_neighbors[i].symbol}{geometry.get_atom_index(geometry.pt_neighbors[i])}:\n{geometry.ligand_to_str(i)}\n")
+
+    if not logger.reassure("Please confirm that the ligands are correct. Do you want to proceed with ligand energies calculation?"):
+        
+        geometry.ligands = []
+        for atom in geometry.atoms: logger.log(f"{geometry.get_atom_index(atom):<4} {atom.symbol:<3}")
+        for atom in geometry.pt_neighbors:
+            ligand = []
+            for index in np.array(logger.get_input(f"Write index of atoms to the ligand {atom.symbol}{geometry.get_atom_index(atom)}:\n").strip().split(), dtype = int):
+                ligand.append(geometry.get_atom(index))
+            geometry.ligands.append(ligand)
+
+        for i, _ in enumerate(geometry.ligands): logger.log(f"Ligand for {geometry.pt_neighbors[i].symbol}{geometry.get_atom_index(geometry.pt_neighbors[i])}:\n{geometry.ligand_to_str(i)}\n")
+
+    not_correct = True
+    while not_correct:
+        geometry.ligand_charges = [int(x) for x in logger.get_input(f"Write formal charges to each ligand (space-separated). The total charge is {case.charge}\n").strip().split()]
+        if (sum(geometry.ligand_charges)+4) != case.charge:
+            logger.log(f"Warning: The total charge of the ligands ({sum(geometry.ligand_charges)}) does not match the expected total charge ({case.charge}). Please double-check the charges you entered.")
+
+    current_step = case.get_current_step()
+    folder = current_step.folder
+    
+    name = f"{case.name}_{LIGAND_EXTENSION}"
+
+    folder.mkdir(parents=True, exist_ok=True)
+    com_file = Path(folder, name).with_suffix(".com")
+    chk_file = Path(folder, name).with_suffix(".chk")
+    log_file = Path(folder, name).with_suffix(".log")
+
+    make_ligand_file(com_file, chk_file, geometry, case.charge, case.multiplicity)
+
+    current_step.local_files["com"] = com_file
+    current_step.local_files["chk"] = chk_file
+    current_step.local_files["log"] = log_file
+
+    current_step.status = StepStatus.NOT_SUBMITED
+
+def run_gaussian_calculation(case: WorkflowCase, scheduler: Scheduler, logger: Logger):
+
+    current_step = case.get_current_step()
+    folder = current_step.folder
+    com_file = current_step.local_files.get("com")
+    chk_file = current_step.local_files.get("chk")
+
+    try:
+        job_id = scheduler.submit_job(folder, com_file, chk_file)
+    except UnsificientResourcesException:
+        logger.log(f"Insufficient resources to run {current_step.calculation_type.value} for case {case.name}. Trying again later...")
+        current_step.status = StepStatus.NOT_SUBMITED
+        return
+    except SubmissionFailedException:
+        logger.log(f"Failed to submit {current_step.calculation_type.value} job for case {case.name}. Trying again later...")
+        current_step.status = StepStatus.NOT_SUBMITED
+        return
+    
+    current_step.job_id = job_id
+    
+    current_step.status = StepStatus.RUNNING
+    logger.log(f"Submitted {current_step.calculation_type.value} for case {case.name} with job ID {job_id}.")
+
+def check_gaussian_calculation(case: WorkflowCase, scheduler: Scheduler, logger: Logger):
 
     current_step = case.get_current_step()
     job_id = current_step.job_id
@@ -268,18 +291,21 @@ CALCULATION_TYPE_TO_PREPARE_STEP = {
     CalculationType.LANL_OPT: prepare_lanl_optimization,
     CalculationType.DZ_OPT: prepare_dz_optimization,
     CalculationType.AIM_ANALYSIS: prepare_aim_analysis,
+    CalculationType.LIGAND_ENERGIES_CALCULATION: prepare_ligand_energies,
 }
 
 CALCULATION_TYPE_TO_RUN_STEP = {
-    CalculationType.LANL_OPT: run_lanl_optimization,
-    CalculationType.DZ_OPT: run_dz_optimization,
+    CalculationType.LANL_OPT: run_gaussian_calculation,
+    CalculationType.DZ_OPT: run_gaussian_calculation,
     CalculationType.AIM_ANALYSIS: run_aim_analysis,
-}  
+    CalculationType.LIGAND_ENERGIES_CALCULATION: run_gaussian_calculation,
+}
 
 CALCULATION_TYPE_TO_CHECK_STEP = {
-    CalculationType.LANL_OPT: check_optimization,
-    CalculationType.DZ_OPT: check_optimization,
+    CalculationType.LANL_OPT: check_gaussian_calculation,
+    CalculationType.DZ_OPT: check_gaussian_calculation,
     CalculationType.AIM_ANALYSIS: check_aim_analysis,
+    CalculationType.LIGAND_ENERGIES_CALCULATION: check_gaussian_calculation,
 }
     
 

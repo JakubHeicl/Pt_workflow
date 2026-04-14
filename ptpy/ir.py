@@ -3,9 +3,26 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from enum import Enum
 import json
+import numpy as np
 
-from .utils import _SYMBOLS
 from .config import METADATA_FILE
+
+_SYMBOLS: list[str] = [
+    "X",
+    "H", "He",
+    "Li", "Be", "B", "C", "N", "O", "F", "Ne",
+    "Na", "Mg", "Al", "Si", "P", "S", "Cl", "Ar",
+    "K", "Ca", "Sc", "Ti", "V", "Cr", "Mn", "Fe", "Co", "Ni", "Cu", "Zn",
+    "Ga", "Ge", "As", "Se", "Br", "Kr",
+    "Rb", "Sr", "Y", "Zr", "Nb", "Mo", "Tc", "Ru", "Rh", "Pd", "Ag", "Cd",
+    "In", "Sn", "Sb", "Te", "I", "Xe",
+    "Cs", "Ba", "La", "Ce", "Pr", "Nd", "Pm", "Sm", "Eu", "Gd", "Tb", "Dy", "Ho", "Er", "Tm", "Yb", "Lu",
+    "Hf", "Ta", "W", "Re", "Os", "Ir", "Pt", "Au", "Hg",
+    "Tl", "Pb", "Bi", "Po", "At", "Rn",
+    "Fr", "Ra", "Ac", "Th", "Pa", "U", "Np", "Pu", "Am", "Cm", "Bk", "Cf", "Es", "Fm", "Md", "No", "Lr",
+    "Rf", "Db", "Sg", "Bh", "Hs", "Mt", "Ds", "Rg", "Cn",
+    "Nh", "Fl", "Mc", "Lv", "Ts", "Og",
+]
 
 @dataclass
 class Atom:
@@ -34,20 +51,39 @@ class Atom:
             y=data["y"],
             z=data["z"]
         )
+    
+    def get_xyz(self):
+        return np.array([self.x, self.y, self.z])
+
+    def dist(self, atom2: Atom) -> float:
+        return np.linalg.norm(self.get_xyz() - atom2.get_xyz())
 
 @dataclass
 class Geometry:
     atoms: list[Atom]
+    pt_neighbors: list[Atom] | None = None
+    ligands: list[set[Atom]] | None = None
+    ligand_charges: list[int] | None = None 
+
+    def __post_init__(self):
+        if self.pt_neighbors is None: self.pt_neighbors = self.find_neighbors(self.get_Pt_atom(), num_neighbors=6, for_Pt=True)
+        if self.ligands is None: self.ligands = self.find_ligands()
 
     def to_json(self) -> dict:
         return {
-            "atoms": [atom.to_json() for atom in self.atoms]
+            "atoms": [atom.to_json() for atom in self.atoms],
+            "pt_neighbors": [atom.to_json() for atom in self.pt_neighbors] if self.pt_neighbors is not None else None,
+            "ligands": [[atom.to_json() for atom in ligand] for ligand in self.ligands] if self.ligands is not None else None,
+            "ligand_charges": self.ligand_charges if self.ligand_charges is not None else None,
         }
 
     @classmethod
     def from_json(cls, data: dict) -> "Geometry":
         return cls(
-            atoms=[Atom.from_json(atom_data) for atom_data in data.get("atoms", [])]
+            atoms=[Atom.from_json(atom_data) for atom_data in data.get("atoms", [])],
+            pt_neighbors=[Atom.from_json(atom_data) for atom_data in data.get("pt_neighbors", [])] if data.get("pt_neighbors") is not None else None,
+            ligands=[[Atom.from_json(atom_data) for atom_data in ligand_data] for ligand_data in data.get("ligands", [])] if data.get("ligands") is not None else None,
+            ligand_charges=data.get("ligand_charges") if data.get("ligand_charges") is not None else None,
         )
     
     @property
@@ -57,6 +93,139 @@ class Geometry:
     @property
     def atoms_symbols(self) -> set[str]:
         return set(atom.symbol for atom in self.atoms)
+    
+    @property
+    def number_of_atoms(self) -> int:
+        return len(self.atoms)
+    
+    def get_atom_index(self, target_atom):
+        for i, atom in enumerate(self.atoms):
+            if atom == target_atom:
+                return i
+        raise Exception("Atom not found in geometry.")
+
+    
+    def get_Pt_atom(self) -> Atom | None:
+        for atom in self.atoms:
+            if atom.symbol == "Pt":
+                return atom
+        return None
+    
+    def get_atom(self, index):
+        return self.atoms[index]
+
+    def find_neighbors(self, target_atom: Atom, num_neighbors: int, for_Pt: bool = False) -> list[Atom]:
+        distances = []
+        for atom in self.atoms:
+            if atom != target_atom and ((not for_Pt) or (atom.symbol != "H")):
+                dist = target_atom.dist(atom)
+                distances.append((atom, dist))
+        
+        distances.sort(key=lambda x: x[1])
+        
+        return list(map(list, zip(*distances[:num_neighbors])))[0]
+    
+    def find_ligands(self) -> list[set[Atom]] | None:
+        
+        ligands: list[set[Atom]] = []
+        pt_neighbors = self.find_neighbors(self.get_Pt_atom(), num_neighbors=6, for_Pt=True)
+        assigned_atoms = set(pt_neighbors) #Set for tracking which atoms have already been assigned to a ligand, starting with Pt neighbors
+        assigned_atoms.add(self.get_Pt_atom())
+
+        #Every neighbor of Pt is a starting point for a ligand, we will expand from there and then merge ligands if they are linked together
+        for pt_neighbor in pt_neighbors:
+            ligand = set([pt_neighbor])
+            queue = [pt_neighbor]  # We will use a queue to perform a breadth-first search for neighboring atoms to add to the ligand
+        
+            while queue:
+                current_atom = queue.pop(0)
+                
+                if current_atom.symbol == "H":
+                    num_neighbors = 1
+                    max_dist = 1.7
+                elif current_atom.symbol == "O":
+                    num_neighbors = 3
+                    max_dist = 1.7
+                else:
+                    num_neighbors = 4
+                    max_dist= 2
+                
+                new_atoms = self.find_neighbors(current_atom, num_neighbors)  # Find neighbors of the current atom to potentially add to the ligand
+            
+                for new_atom in new_atoms:
+                    if new_atom not in assigned_atoms:
+                        too_close = any(
+                            new_atom.dist(other_ligand_atom) < 1.75
+                            for other_ligand in ligands
+                            for other_ligand_atom in other_ligand
+                            )
+                        too_far = current_atom.dist(new_atom) > max_dist
+                        if not too_close and not too_far:
+                            ligand.add(new_atom)
+                            queue.append(new_atom)  # Add the new atom to the queue to find its neighbors in the next iterations
+                            assigned_atoms.add(new_atom)
+
+            ligands.append(ligand)
+            
+        linked_ligands = any(
+            ligand_atom.dist(other_ligand_atom) < 1.75
+            for ligand in ligands
+            for ligand_atom in ligand
+            for other_ligand in ligands if not other_ligand == ligand
+            for other_ligand_atom in other_ligand)
+        
+        while linked_ligands:
+            merged = False
+            for ligand in ligands:
+                for ligand_atom in ligand:
+                    for other_ligand in ligands:
+                        if other_ligand == ligand:
+                            continue
+                        for other_ligand_atom in other_ligand:
+                            if ligand_atom.dist(other_ligand_atom) < 1.75:
+                                
+                                ligand.update(other_ligand)
+                                ligands.remove(other_ligand)
+                                merged = True
+                                break
+                        if merged:
+                            break
+                    if merged:
+                        break
+                if merged:
+                    break
+            linked_ligands = any(
+                ligand_atom.dist(other_ligand_atom) < 1.75
+                for ligand in ligands
+                for ligand_atom in ligand
+                for other_ligand in ligands if not other_ligand == ligand
+                for other_ligand_atom in other_ligand)
+        
+        sum_of_atoms = 1
+        for ligand in ligands:
+            sum_of_atoms += len(ligand)
+            
+        if sum_of_atoms != self.number_of_atoms:
+            print("Mám problém s nalezením ligandů, zadejte ručně")
+            return None
+        
+        final_ligands = []
+        
+        for atom in pt_neighbors:
+            for ligand in ligands:
+                if atom in ligand:
+                    final_ligands.append(ligand)
+                    
+        return final_ligands
+
+    def ligand_to_str(self, ligand_index):
+        ligand: set[Atom] = self.ligands[ligand_index]
+        final_string = ""
+        
+        for atom in ligand:
+            final_string = f"{final_string}{atom.symbol}{self.get_atom_index(atom)} "
+            
+        return final_string.strip()
 
 class CalculationType(Enum):
     LANL_OPT = "lanl_opt"
