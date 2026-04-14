@@ -237,7 +237,7 @@ def check_aim_analysis(case: WorkflowCase, scheduler: Scheduler, logger: Logger)
     file_status = get_aim_status(current_step.local_files["out"])
 
     if file_status == FileStatus.SUCCESS:
-        if not scheduler.does_remote_file_exist(current_step.remote_files.get("fchk").with_suffix(".sum")):
+        if not scheduler.does_remote_file_exist(AIM_CLUSTER, current_step.remote_files.get("fchk").with_suffix(".sum")):
             logger.log(f"AIM output file for case {case.name} indicates success, but summary file is missing. Marking as not sure for now.")
             current_step.status = StepStatus.NOT_SURE
             return
