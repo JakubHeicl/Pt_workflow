@@ -19,7 +19,7 @@ ALIP_ELSTAT_CLUSTER =   "heiclj@jupiter.karlov.mff.cuni.cz"
 AIM_FOLDER =            "/Volumes/Home_2/Users_Ju/heiclj/ptpy_calculations/aim"
 ALIP_ELSTAT_FOLDER =    "/Volumes/Home_2/Users_Ju/heiclj/ptpy_calculations/alip_elstat"
 
-POTMIT_EXE = Path(PACKAGE_ROOT, "scripts", "potmit.exe")
+POTMIT_EXE = Path(PACKAGE_ROOT, "scripts", "potmin.exe")
 ALIP_EXE = Path(PACKAGE_ROOT, "scripts", "alip.exe")
 
 ELSTAT_SCRIPT = Path(PACKAGE_ROOT, "scripts", "elstat.sh")
