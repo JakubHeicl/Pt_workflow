@@ -164,7 +164,7 @@ def make_dz_file(com_file: Path, chk_file: Path, geometry_lines: list[str], atom
     with open(com_file, "w") as file:
         file.write(content)
 
-def make_ligand_file(com_file: Path, chk_file: Path, geometry: Geometry, charge: int, mult: int):
+def make_ligand_file(com_file: Path, chk_file: Path, geometry: Geometry, charge: int, mult: int, bases_folder: Path = BASES_FOLDER):
 
     with open(com_file, "w") as f:
                     
@@ -215,12 +215,12 @@ def make_ligand_file(com_file: Path, chk_file: Path, geometry: Geometry, charge:
                 f.write("****\n")
                 
             for atom in unique_atoms:
-                f.write(getbasis(com_file.stem, atom))
+                f.write(getbasis(com_file.stem, atom, bases_folder))
                 
             f.write("\n")
             
             for atom in unique_atoms:
-                f.write(getpot(com_file.stem, atom))
+                f.write(getpot(com_file.stem, atom, bases_folder))
                 
             f.write("\n")
             f.write("--Link1--\n")
@@ -259,11 +259,11 @@ def make_ligand_file(com_file: Path, chk_file: Path, geometry: Geometry, charge:
                 f.write("****\n")
             
             for atom in unique_atoms:
-                f.write(getbasis(com_file.stem, atom))
+                f.write(getbasis(com_file.stem, atom, bases_folder))
                 
             f.write("\n")
             
             for atom in unique_atoms:
-                f.write(getpot(com_file.stem, atom))
+                f.write(getpot(com_file.stem, atom, bases_folder))
                 
             f.write("\n")

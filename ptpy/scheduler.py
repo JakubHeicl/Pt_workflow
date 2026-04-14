@@ -140,16 +140,16 @@ class Scheduler:
         else:
             raise NotImplementedError(f"Scheduler type {self.scheduler_type} is not implemented yet.")
         
-    def remote_disconnect(self) -> None:
+    def run_remote_command(self, target: str, command: str) -> None:
         if self.scheduler_type == SchedulerType.SLURM:
             try:
-                subprocess.run(["exit"], check=True)
+                subprocess.run(["ssh", "-T", "-n", target, command], check=True)
             except subprocess.CalledProcessError:
-                raise RuntimeError(f"Failed to disconnect")
+                raise RemoteExecutionException(f"Failed to run command on {target}: {command}.")
         else:
             raise NotImplementedError(f"Scheduler type {self.scheduler_type} is not implemented yet.")
         
-    def run_remote_command(self, target: str, command: str) -> None:
+    def run_remote_background_command(self, target: str, command: str) -> None:
         if self.scheduler_type == SchedulerType.SLURM:
             try:
                 subprocess.run(["ssh", "-T", "-n", "-f", target, command], check=True)

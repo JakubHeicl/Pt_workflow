@@ -75,7 +75,7 @@ def proccess_case(case: WorkflowCase, scheduler: Scheduler, logger: Logger):
         run_step(case, scheduler, logger)
 
     if current_step.status == StepStatus.PENDING:
-        prepare_step(case, scheduler)
+        prepare_step(case, scheduler, logger)
         run_step(case, scheduler, logger)
 
     if current_step.status == StepStatus.COMPLETED and not case.terminated:
@@ -93,7 +93,7 @@ def proccess_case(case: WorkflowCase, scheduler: Scheduler, logger: Logger):
             current_step.status = StepStatus.PENDING
             proccess_case(case, scheduler, logger)
 
-def prepare_step(case: WorkflowCase, scheduler: Scheduler):
+def prepare_step(case: WorkflowCase, scheduler: Scheduler, logger: Logger):
     
     current_step = case.get_current_step()
     
@@ -101,7 +101,7 @@ def prepare_step(case: WorkflowCase, scheduler: Scheduler):
     if prepare_function is None:
         raise NotImplementedError(f"Unknown prepare step type: {current_step.calculation_type}")
     
-    prepare_function(case, scheduler)
+    prepare_function(case, scheduler, logger)
 
 def run_step(case: WorkflowCase, scheduler: Scheduler, logger: Logger):
     

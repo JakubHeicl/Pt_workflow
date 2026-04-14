@@ -11,7 +11,7 @@ from .config import AIM_CLUSTER, AIM_FOLDER, LANL_EXTENSION, DZ_EXTENSION, LIGAN
 from .scripts import aim_analysis_script
 from .logger import Logger
 
-def prepare_lanl_optimization(case: WorkflowCase, scheduler: Scheduler):
+def prepare_lanl_optimization(case: WorkflowCase, scheduler: Scheduler, logger: Logger):
 
     current_step = case.get_current_step()
     folder = current_step.folder
@@ -40,7 +40,7 @@ def prepare_lanl_optimization(case: WorkflowCase, scheduler: Scheduler):
 
     current_step.status = StepStatus.NOT_SUBMITED
 
-def prepare_dz_optimization(case: WorkflowCase, scheduler: Scheduler):
+def prepare_dz_optimization(case: WorkflowCase, scheduler: Scheduler, logger: Logger):
 
     current_step = case.get_current_step()
     folder = current_step.folder
@@ -67,7 +67,7 @@ def prepare_dz_optimization(case: WorkflowCase, scheduler: Scheduler):
 
     current_step.status = StepStatus.NOT_SUBMITED
     
-def prepare_aim_analysis(case: WorkflowCase, scheduler: Scheduler):
+def prepare_aim_analysis(case: WorkflowCase, scheduler: Scheduler, logger: Logger):
 
     if case.get_repository().metadata.get("running_aim") is None:
         case.get_repository().metadata["running_aim"] = 0
@@ -82,6 +82,11 @@ def prepare_aim_analysis(case: WorkflowCase, scheduler: Scheduler):
         raise ValueError(f"Expected previous step to be DZ OPTIMIZATION, got {previous_step.calculation_type}.")
     
     formchk_file = previous_step.local_files.get("fchk")
+
+    if formchk_file is None or not formchk_file.exists():
+        logger.log(f"Formchk file from previous DZ optimization step is not available for case {case.name}. Cannot prepare AIM analysis.")
+        current_step.status = StepStatus.FAILED
+        return
 
     folder = current_step.folder
     folder.mkdir(parents=True, exist_ok=True)
@@ -115,7 +120,7 @@ def run_aim_analysis(case: WorkflowCase, scheduler: Scheduler, logger: Logger):
         logger.log(f"Transferring file {formchk_file} to {AIM_CLUSTER}:{remote_folder}")
         scheduler.transfer_file_to_remote(formchk_file, AIM_CLUSTER, str(remote_folder))
         logger.log(f"Running command on {AIM_CLUSTER}: {aim_script}")
-        scheduler.run_remote_command(AIM_CLUSTER, aim_script)
+        scheduler.run_remote_background_command(AIM_CLUSTER, aim_script)
     except RemoteExecutionException as e:
         logger.log(f"Failed to run AIM analysis for case {case.name} on cluster {AIM_CLUSTER}: {e} Trying again later...")
         current_step.status = StepStatus.NOT_SUBMITED
@@ -155,6 +160,8 @@ def prepare_ligand_energies(case: WorkflowCase, scheduler: Scheduler, logger: Lo
         geometry.ligand_charges = [int(x) for x in logger.get_input(f"Write formal charges to each ligand (space-separated). The total charge is {case.charge}\n").strip().split()]
         if (sum(geometry.ligand_charges)+4) != case.charge:
             logger.log(f"Warning: The total charge of the ligands ({sum(geometry.ligand_charges)}) does not match the expected total charge ({case.charge}). Please double-check the charges you entered.")
+        else:
+            not_correct = False
 
     current_step = case.get_current_step()
     folder = current_step.folder
@@ -177,6 +184,10 @@ def prepare_ligand_energies(case: WorkflowCase, scheduler: Scheduler, logger: Lo
 def run_gaussian_calculation(case: WorkflowCase, scheduler: Scheduler, logger: Logger):
 
     current_step = case.get_current_step()
+
+    if current_step.status != StepStatus.NOT_SUBMITED:
+        return
+
     folder = current_step.folder
     com_file = current_step.local_files.get("com")
     chk_file = current_step.local_files.get("chk")
@@ -263,6 +274,7 @@ def check_aim_analysis(case: WorkflowCase, scheduler: Scheduler, logger: Logger)
         if not scheduler.does_remote_file_exist(AIM_CLUSTER, current_step.remote_files.get("fchk").with_suffix(".sum")):
             logger.log(f"AIM output file for case {case.name} indicates success, but summary file is missing. Marking as not sure for now.")
             current_step.status = StepStatus.NOT_SURE
+            case.get_repository().metadata["running_aim"] = case.get_repository().metadata.get("running_aim", 0) - 1
             return
         try:
             scheduler.transfer_file_from_remote(AIM_CLUSTER, str(current_step.remote_files.get("fchk").with_suffix(".sum")), folder)
@@ -277,10 +289,12 @@ def check_aim_analysis(case: WorkflowCase, scheduler: Scheduler, logger: Logger)
         case.get_repository().metadata["running_aim"] = case.get_repository().metadata.get("running_aim", 0) - 1
         logger.log(f"AIM analysis for case {case.name} completed successfully.")
     elif file_status == FileStatus.NOT_SURE:
+        case.get_repository().metadata["running_aim"] = case.get_repository().metadata.get("running_aim", 0) - 1
         logger.log(f"AIM analysis for case {case.name} is running for a long time. Please check the output log for details. Marking as not sure for now.")
         current_step.status = StepStatus.NOT_SURE
         return
     elif file_status == FileStatus.FAILURE:
+        case.get_repository().metadata["running_aim"] = case.get_repository().metadata.get("running_aim", 0) - 1
         current_step.status = StepStatus.FAILED
         logger.log(f"AIM analysis for case {case.name} failed. Please check the logs for details.")
     elif file_status == FileStatus.RUNNING:

@@ -24,12 +24,13 @@ _SYMBOLS: list[str] = [
     "Nh", "Fl", "Mc", "Lv", "Ts", "Og",
 ]
 
-@dataclass
 class Atom:
-    atomic_number: int
-    x: float
-    y: float
-    z: float
+
+    def __init__(self, atomic_number: int, x: float, y: float, z: float):
+        self.atomic_number = atomic_number
+        self.x = x
+        self.y = y
+        self.z = z
 
     @property
     def symbol(self) -> str:
@@ -72,17 +73,18 @@ class Geometry:
     def to_json(self) -> dict:
         return {
             "atoms": [atom.to_json() for atom in self.atoms],
-            "pt_neighbors": [atom.to_json() for atom in self.pt_neighbors] if self.pt_neighbors is not None else None,
-            "ligands": [[atom.to_json() for atom in ligand] for ligand in self.ligands] if self.ligands is not None else None,
+            "pt_neighbors": [self.get_atom_index(atom) for atom in self.pt_neighbors] if self.pt_neighbors is not None else None,
+            "ligands": [[self.get_atom_index(atom) for atom in ligand] for ligand in self.ligands] if self.ligands is not None else None,
             "ligand_charges": self.ligand_charges if self.ligand_charges is not None else None,
         }
 
     @classmethod
     def from_json(cls, data: dict) -> "Geometry":
+        atoms=[Atom.from_json(atom_data) for atom_data in data.get("atoms", [])]
         return cls(
-            atoms=[Atom.from_json(atom_data) for atom_data in data.get("atoms", [])],
-            pt_neighbors=[Atom.from_json(atom_data) for atom_data in data.get("pt_neighbors", [])] if data.get("pt_neighbors") is not None else None,
-            ligands=[[Atom.from_json(atom_data) for atom_data in ligand_data] for ligand_data in data.get("ligands", [])] if data.get("ligands") is not None else None,
+            atoms=atoms,
+            pt_neighbors=[atoms[atom_index] for atom_index in data.get("pt_neighbors", [])] if data.get("pt_neighbors") is not None else None,
+            ligands=[[atoms[atom_index] for atom_index in ligand_data] for ligand_data in data.get("ligands", [])] if data.get("ligands") is not None else None,
             ligand_charges=data.get("ligand_charges") if data.get("ligand_charges") is not None else None,
         )
     
