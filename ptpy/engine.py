@@ -152,7 +152,7 @@ def run(verbose: bool = True, log_file: Path | None = None, loop: bool = False, 
             continue_loop = False
             logger.log("All cases processed for now, run the workflow later to check for running jobs and to process next steps.")
         else:
-            logger.log(f"All cases processed, sleeping for {loop_delay} seconds before checking again for new cases and running jobs...")
+            logger.log(f"All cases processed, waiting for {loop_delay} seconds before checking again for new cases and running jobs...")
             for _ in tqdm(range(loop_delay), desc="Waiting", unit="s"):
                 time.sleep(1)
 
