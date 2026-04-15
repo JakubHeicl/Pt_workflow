@@ -314,7 +314,7 @@ def run_alip_elstat_calculation(case: WorkflowCase, scheduler: Scheduler, logger
         scheduler.run_remote_command(ALIP_ELSTAT_CLUSTER, f"cd {remote_folder} && chmod a+x potmin.exe alip.exe")
 
         scheduler.run_remote_command(ALIP_ELSTAT_CLUSTER, f"cd {remote_folder} && ./elstat.sh")
-        scheduler.run_remote_background_command(ALIP_ELSTAT_CLUSTER, f"/bin/bash -lc 'cd {remote_folder} && nohup ./alip.sh'")
+        scheduler.run_remote_background_command(ALIP_ELSTAT_CLUSTER, f"/bin/bash -lc 'cd {remote_folder} && nohup ./alip.sh > output.log 2>&1 </dev/null &'")
 
     except RemoteExecutionException as e:
         logger.log(f"Failed to run ALIP ELSTAT calculations for case {case.name} on cluster {ALIP_ELSTAT_CLUSTER}: {e} Trying again later...")
