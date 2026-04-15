@@ -1,6 +1,7 @@
 from enum import Enum
 from pathlib import Path
 import subprocess
+import shlex
 
 from .scripts import spust_g16_script
 from .config import SCHEDULER, PARTITION, NUMBER_OF_CORES_GAUSSAIN, MEMORY, USER
@@ -200,13 +201,21 @@ class Scheduler:
                 raise RemoteExecutionException(f"Failed to get size of file {remote_path} from {remote_host}.")
         else:
             raise NotImplementedError(f"Scheduler type {self.scheduler_type} is not implemented yet.")
-        
+
     def does_remote_file_contain(self, remote_host: str, remote_path: str, text: str) -> bool:
         if self.scheduler_type == SchedulerType.SLURM:
-            try:
-                result = subprocess.run(["ssh", remote_host, "grep", "-q", text, remote_path], check=True)
-                return result.returncode == 0
-            except subprocess.CalledProcessError:
+            command = f"grep -F -q -- {shlex.quote(text)} {shlex.quote(str(remote_path))}"
+            result = subprocess.run(
+                ["ssh", "-T", "-n", remote_host, command],
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode == 0:
+                return True
+            if result.returncode == 1:
                 return False
+            raise RemoteExecutionException(
+                f"Failed to search in remote file {remote_path} on {remote_host}: {result.stderr.strip()}"
+            )
         else:
-            raise NotImplementedError(f"Scheduler type {self.scheduler_type} is not implemented yet.")
+            raise NotImplementedError(...)

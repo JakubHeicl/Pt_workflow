@@ -25,7 +25,7 @@ ALIP_EXE = Path(PACKAGE_ROOT, "scripts", "alip.exe")
 ELSTAT_SCRIPT = Path(PACKAGE_ROOT, "scripts", "elstat.sh")
 ALIP_SCRIPT = Path(PACKAGE_ROOT, "scripts", "alip.sh")
 CONFIG_ALIP = Path(PACKAGE_ROOT, "scripts", "config")
-MAX_ALIP_TIME = 20 * 60
+MAX_ALIP_TIME = 360
 
 MAX_RUNNING_AIM = 4
 MAX_AIM_TIME = 3600 * 4 # in seconds
