@@ -8,7 +8,7 @@ METADATA_FILE: Path = Path("metadata.json")
 RUN_FOLDER: Path = Path("runs")
 BASES_FOLDER: Path = Path(PACKAGE_ROOT, "bases")
 
-LOOP_SLEEP_TIME = 20 # in seconds
+LOOP_SLEEP_TIME = 120 # in seconds
 
 LANL_EXTENSION = "lanl"
 DZ_EXTENSION = "dz" 
@@ -25,15 +25,15 @@ ALIP_EXE = Path(PACKAGE_ROOT, "scripts", "alip.exe")
 ELSTAT_SCRIPT = Path(PACKAGE_ROOT, "scripts", "elstat.sh")
 ALIP_SCRIPT = Path(PACKAGE_ROOT, "scripts", "alip.sh")
 CONFIG_ALIP = Path(PACKAGE_ROOT, "scripts", "config")
-MAX_ALIP_TIME = 360
+MAX_ALIP_TIME = 3600
 
 MAX_RUNNING_AIM = 4
 MAX_AIM_TIME = 3600 * 4 # in seconds
 
 SCHEDULER = "slurm" # Options: "slurm", "local", "pbs"
 PARTITION = "q_kchfo"
-NUMBER_OF_CORES_GAUSSAIN = 32
-MEMORY = 4000 # in MB   
+NUMBER_OF_CORES_GAUSSAIN = 4
+MEMORY = 2000 # in MB   
 
 NUMBER_OF_CORES_AIM = 4
 
