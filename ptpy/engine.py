@@ -1,6 +1,7 @@
 from pathlib import Path
 import shutil
 import time
+from tqdm import tqdm
 
 from .ir import WorkflowCase, CalculationStep, StepStatus, CalculationType, Repository
 from .config import AIM_CLUSTER, AIM_FOLDER, ALIP_ELSTAT_FOLDER, REPOSITORY_FOLDER, RUN_FOLDER, INPUT_FOLDER, SCHEDULER, LOOP_SLEEP_TIME, ALIP_ELSTAT_CLUSTER
@@ -8,6 +9,7 @@ from .utils import get_charge_and_mult_from_com
 from .calculations_steps import CALCULATION_TYPE_TO_CHECK_STEP, CALCULATION_TYPE_TO_PREPARE_STEP, CALCULATION_TYPE_TO_RUN_STEP
 from .scheduler import Scheduler
 from .logger import Logger
+
 
 def add_to_repository_from_input_folder(repo: Repository, input_folder: Path):
     for input_file in input_folder.glob("*.xyz"):
@@ -151,7 +153,8 @@ def run(verbose: bool = True, log_file: Path | None = None, loop: bool = False, 
             logger.log("All cases processed for now, run the workflow later to check for running jobs and to process next steps.")
         else:
             logger.log(f"All cases processed, sleeping for {loop_delay} seconds before checking again for new cases and running jobs...")
-            time.sleep(loop_delay)
+            for _ in tqdm(range(loop_delay), desc="Waiting", unit="s"):
+                time.sleep(1)
 
 def show_status(verbose: bool = True, log_file: Path | None = None):
     logger = Logger(verbose=verbose, log_file=log_file)
