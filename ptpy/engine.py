@@ -11,14 +11,29 @@ from .scheduler import Scheduler
 from .logger import Logger
 
 
-def add_to_repository_from_input_folder(repo: Repository, input_folder: Path):
+def add_to_repository_from_input_folder(repo: Repository, input_folder: Path, logger: Logger):
     for input_file in input_folder.glob("*.xyz"):
         if repo.get_case_by_name(input_file.stem) is not None:
             continue
 
-        charge = int(input(f"Enter charge for {input_file.name}: "))
-        mult = int(input(f"Enter multiplicity for {input_file.name}: "))
-
+        if not logger.verbose:
+            logger.log("Verbose mode is off. Cannot ask for charge and multiplicity for new .xyz input files. Please toggle verbose mode on to be able to provide the required information for the calculations.")
+            return
+        
+        not_correct = True
+        while not_correct:
+            try:
+                charge = float(logger.get_input(f"Enter charge for {input_file.name}: "))
+                mult = float(logger.get_input(f"Enter multiplicity for {input_file.name}: "))
+            except ValueError:
+                logger.log("Charge and multiplicity must be integer values. Please try again.")
+            if charge.is_integer() and mult.is_integer():
+                charge = int(charge)
+                mult = int(mult)
+                not_correct = False
+            else:
+                logger.log("Charge and multiplicity must be integer values. Please try again.")
+        
         directory = Path(RUN_FOLDER, input_file.stem)
         directory.mkdir(parents=True, exist_ok=True)
 
@@ -141,7 +156,7 @@ def run(verbose: bool = True, log_file: Path | None = None, loop: bool = False, 
         scheduler = Scheduler(SCHEDULER)
 
         repo.load_from_folder(REPOSITORY_FOLDER)
-        add_to_repository_from_input_folder(repo, INPUT_FOLDER)
+        add_to_repository_from_input_folder(repo, INPUT_FOLDER, logger)
 
         for case in tqdm(repo.cases, desc="Processing cases"):
             proccess_case(case, scheduler, logger)
