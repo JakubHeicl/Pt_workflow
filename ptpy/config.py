@@ -8,7 +8,7 @@ METADATA_FILE: Path = Path("metadata.json")
 RUN_FOLDER: Path = Path("runs")
 BASES_FOLDER: Path = Path(PACKAGE_ROOT, "bases")
 
-LOOP_SLEEP_TIME = 5 # in seconds
+LOOP_SLEEP_TIME = 20 # in seconds
 
 LANL_EXTENSION = "lanl"
 DZ_EXTENSION = "dz" 
