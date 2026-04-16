@@ -5,7 +5,7 @@ from tqdm import tqdm
 from copy import deepcopy
 
 from .ir import WorkflowCase, CalculationStep, StepStatus, CalculationType, Repository
-from .config import AIM_CLUSTER, AIM_FOLDER, ALIP_ELSTAT_FOLDER, REPOSITORY_FOLDER, RUN_FOLDER, INPUT_FOLDER, SCHEDULER, LOOP_SLEEP_TIME, ALIP_ELSTAT_CLUSTER
+from .config import AIM_CLUSTER, AIM_FOLDER, ALIP_ELSTAT_FOLDER, REPOSITORY_FOLDER, RUN_FOLDER, INPUT_FOLDER, SCHEDULER, LOOP_SLEEP_TIME, ALIP_ELSTAT_CLUSTER, STOP_FILE
 from .utils import get_charge_and_mult_from_com
 from .calculations_steps import CALCULATION_TYPE_TO_CHECK_STEP, CALCULATION_TYPE_TO_PREPARE_STEP, CALCULATION_TYPE_TO_RUN_STEP
 from .scheduler import Scheduler
@@ -148,7 +148,7 @@ def run(logger: Logger, interaction: Interaction, loop: bool = False, loop_delay
         repo.load_from_folder(REPOSITORY_FOLDER)
         add_to_repository_from_input_folder(repo, INPUT_FOLDER, logger, interaction)
 
-        for case in tqdm(repo.cases, desc="Processing cases"):
+        for case in repo.cases:
             proccess_case(case, scheduler, logger, interaction)
 
         repo.save_to_folder(REPOSITORY_FOLDER)
@@ -158,8 +158,15 @@ def run(logger: Logger, interaction: Interaction, loop: bool = False, loop_delay
             logger.log("All cases processed for now, run the workflow later to check for running jobs and to process next steps.")
         else:
             logger.log(f"All cases processed, waiting for {loop_delay} seconds before checking again for new cases and running jobs...")
-            for _ in tqdm(range(loop_delay), desc="Waiting", unit="s"):
+            for _ in range(loop_delay):
                 time.sleep(1)
+                if STOP_FILE.exists():
+                    logger.log("--stop-loop called, stopping the workflow loop.")
+                    continue_loop = False
+                    break
+
+    if STOP_FILE.exists():
+        STOP_FILE.unlink()
 
 def show_status(logger: Logger):
     if not REPOSITORY_FOLDER.exists():
@@ -205,3 +212,5 @@ def restore(logger: Logger, interaction: Interaction):
         logger.log(f"Clearing ALIP ELSTAT cluster folder '{ALIP_ELSTAT_FOLDER}'...")
         scheduler.run_remote_command(ALIP_ELSTAT_CLUSTER, f"rm -rf {ALIP_ELSTAT_FOLDER}/*"  )
         
+def stop_loop():
+    STOP_FILE.touch()

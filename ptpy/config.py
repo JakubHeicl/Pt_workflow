@@ -6,6 +6,7 @@ INPUT_FOLDER: Path      = Path("input_files")
 REPOSITORY_FOLDER: Path = Path("repository")
 RUN_FOLDER: Path        = Path("runs")
 BASES_FOLDER: Path      = Path(PACKAGE_ROOT, "bases")
+STOP_FILE: Path         = Path(REPOSITORY_FOLDER, "STOP_FILE")
 
 LOOP_SLEEP_TIME         = 120 # in seconds
 
