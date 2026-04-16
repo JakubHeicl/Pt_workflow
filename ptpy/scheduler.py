@@ -4,9 +4,9 @@ import subprocess
 import shlex
 
 from .scripts import spust_g16_script
-from .config import SCHEDULER, PARTITION, NUMBER_CORES_GAUSSIAN, MEMORY, USER
+from .config import SCHEDULER, PARTITION, GAUSSIAN_NUM_CORES, MEMORY, USER
 
-class UnsificientResourcesException(Exception):
+class InsufficientResourcesError(Exception):
     def __init__(self, message="No available resources to submit the job."):
         self.message = message
         super().__init__(self.message)
@@ -60,19 +60,19 @@ class Scheduler:
         else:
             raise NotImplementedError(f"Scheduler type {self.scheduler_type} is not implemented yet.")
 
-    def get_running_jobs(self, running = True, pending = True, partition = None) -> list[tuple[str, str]]:
+    def get_active_jobs(self, running = True, pending = True, partition = None) -> list[tuple[str, str]]:
 
         if((not running) and (not pending)):
-            raise RuntimeError("Specify atleast one of running or pending arguments")
+            raise RuntimeError("Specify at least one of running or pending arguments")
 
-        type = ""
+        states_arg = ""
 
         if running:
-            type += "R"
+            states_arg += "R"
         if pending:
-            type = ",".join([type, "PD"])
+            states_arg = ",".join([states_arg, "PD"])
 
-        cmd = ["squeue", "-h", "-u", USER, "-t", type, "-o", "%i|%j"]
+        cmd = ["squeue", "-h", "-u", USER, "-t", states_arg, "-o", "%i|%j"]
         if partition:
             cmd.extend(["-p", partition])
 
@@ -86,9 +86,9 @@ class Scheduler:
             out.append((jobid, name))
         return out
     
-    def is_job_running(self, job_id: str) -> bool:
+    def is_job_active(self, job_id: str) -> bool:
 
-        jobs = self.get_running_jobs()
+        jobs = self.get_active_jobs()
 
         for jid, _ in jobs:
             if jid == job_id:
@@ -103,10 +103,10 @@ class Scheduler:
         if not nodes:
             nodes = self.get_nodes(status="alloc")
         if not nodes:
-            raise UnsificientResourcesException()
+            raise InsufficientResourcesError()
 
         job_script = spust_g16_script.substitute(
-            num_cpus=NUMBER_CORES_GAUSSIAN,
+            num_cpus=GAUSSIAN_NUM_CORES,
             job_name=com_file.stem,
             memory=MEMORY,
             chk_file=chk_file.name,

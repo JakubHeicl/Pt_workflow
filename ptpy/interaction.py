@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
 
@@ -19,8 +19,8 @@ class LigandReviewRequest:
     case_name: str                      # Case name
     atom_labels: list[str]              # All atoms
     pt_neighbors_labels: list[str]      # Atoms around Pt
-    suggested_ligands: list[list[int]]  # Indexes of atoms
-    total_charge: int                   # Total charge
+    total_charge: int                   # Total charge of the system
+    suggested_ligands: list[list[int]] = field(default_factory=list)  # Indexes of atoms
 
 @dataclass
 class LigandReviewResponse:
@@ -37,8 +37,9 @@ class Interaction(Protocol):
     def confirm(self, prompt: str, default: bool = True) -> bool: ...
     def request_xyz_metadata(self, input_file: Path) -> tuple[int, int]: ...
     def review_ligands(self, request: LigandReviewRequest) -> LigandReviewResponse: ...
+    def request_manual_ligands(self, request: LigandReviewRequest) -> LigandReviewResponse: ...
 
-def _map_atoms_to_indexes(indexes: list[int], all_atoms: list[str]) -> list[str]:  
+def atoms_labels_for_indices(indexes: list[int], all_atoms: list[str]) -> list[str]:  
         atoms = []
 
         for index in indexes:
@@ -64,12 +65,12 @@ class ConsoleInteraction:
             except ValueError:
                 self.logger.log("Invalid input. Please enter an integer.")
 
-    def _ask_ligand(self, pt_neighbor: str, max_atoms: int) -> list[int]:
+    def _ask_ligand(self, pt_neighbor: str, max_atoms: int, case_name: str) -> list[int]:
 
         continue_loop = True
         while continue_loop:
             ligand = []
-            message = f"Write the indices of atoms to the ligand {pt_neighbor}:\n"
+            message = f"Write the indices of atoms to the ligand {pt_neighbor} of case {case_name}:\n"
             self.logger.log(message, print_to_console=False)
             response = input(message)
             self.logger.log(f"User input: {response}", print_to_console=False)
@@ -105,36 +106,32 @@ class ConsoleInteraction:
         multiplicity = self._ask_int(f"Enter multiplicity for {input_file.name}: ")
         return charge, multiplicity
     
-    def review_ligands(self, request: LigandReviewRequest) -> LigandReviewResponse:
-
-        for i, _ in enumerate(request.suggested_ligands): self.logger.log(f"Ligand for {request.pt_neighbors_labels[i]}:\n{_map_atoms_to_indexes(request.suggested_ligands[i], request.atom_labels)}\n")
-
-        if not self.confirm(f"Review the suggested ligands for case {request.case_name}. Do you want to keep the suggested ligands?", default=True):
-            continue_loop = True
-            while continue_loop:
-
-                new_ligands = []
-
-                for pt_neighbor in request.pt_neighbors_labels:
-                    
-                    ligand = self._ask_ligand(pt_neighbor, len(request.atom_labels))
-                    
-                    new_ligands.append(ligand)
-
-                if sum([len(ligand) for ligand in new_ligands]) != len(request.atom_labels) - 1:
-                    self.logger.log("Ligands must include all atoms except the Pt center. Please review your ligands.")
-                    continue
-
-                for i, _ in enumerate(new_ligands): self.logger.log(f"Ligand for {request.pt_neighbors_labels[i]}:\n{_map_atoms_to_indexes(new_ligands[i], request.atom_labels)}\n")
-                continue_loop = not self.confirm("Do you want to keep these ligands?", default=True)
-
-        else:
-            new_ligands = request.suggested_ligands
-
-        ligand_charges = []
-
+    def _ask_ligand_indices(self, request: LigandReviewRequest) -> list[list[int]]:
         not_correct = True
         while not_correct:
+
+            new_ligands = []
+
+            for pt_neighbor in request.pt_neighbors_labels:
+                
+                ligand = self._ask_ligand(pt_neighbor, len(request.atom_labels), request.case_name)
+                
+                new_ligands.append(ligand)
+
+            if sum([len(ligand) for ligand in new_ligands]) != len(request.atom_labels) - 1:
+                self.logger.log("Ligands must include all atoms except the Pt center. Please review your ligands.")
+                continue
+
+            for i, _ in enumerate(new_ligands): self.logger.log(f"Ligand for {request.pt_neighbors_labels[i]}:\n{atoms_labels_for_indices(new_ligands[i], request.atom_labels)}\n")
+            not_correct = not self.confirm("Do you want to keep these ligands?", default=True)
+        return new_ligands
+
+    def _ask_ligand_charges(self, request: LigandReviewRequest) -> list[int]:
+        not_correct = True
+        while not_correct:
+
+            ligand_charges = []
+
             message = f"Write formal charges to each ligand (space-separated). The total charge is {request.total_charge}\n"
             self.logger.log(message, print_to_console = False)
             response = input(message)
@@ -144,13 +141,34 @@ class ConsoleInteraction:
             except ValueError:
                 self.logger.log("Invalid input. Please enter integer values separated by spaces.")
                 continue
-            if len(ligand_charges) != len(new_ligands):
-                self.logger.log(f"You must enter exactly {len(new_ligands)} charges, one for each ligand. Please try again.")
+            if len(ligand_charges) != len(request.pt_neighbors_labels):
+                self.logger.log(f"You must enter exactly {len(request.pt_neighbors_labels)} charges, one for each ligand. Please try again.")
                 continue
             if (sum(ligand_charges)+4) != request.total_charge:
                 self.logger.log(f"Warning: The total charge of the ligands ({sum(ligand_charges)}) does not match the expected total charge ({request.total_charge}). Please double-check the charges you entered.")
             else:
                 not_correct = False
+        return ligand_charges
+
+    def request_manual_ligands(self, request: LigandReviewRequest) -> LigandReviewResponse:
+
+        self.logger.log(f"Manually submitting ligands for case {request.case_name}.")
+        
+        ligands = self._ask_ligand_indices(request)
+        ligand_charges = self._ask_ligand_charges(request)
+
+        return LigandReviewResponse(ligands=ligands, ligand_charges=ligand_charges)
+
+    def review_ligands(self, request: LigandReviewRequest) -> LigandReviewResponse:
+
+        for i, _ in enumerate(request.suggested_ligands): self.logger.log(f"Ligand for {request.pt_neighbors_labels[i]}:\n{atoms_labels_for_indices(request.suggested_ligands[i], request.atom_labels)}\n")
+
+        if not self.confirm(f"Review the suggested ligands for case {request.case_name}. Do you want to keep the suggested ligands?", default=True):
+            new_ligands = self._ask_ligand_indices(request)
+        else:
+            new_ligands = request.suggested_ligands
+
+        ligand_charges = self._ask_ligand_charges(request)
 
         return LigandReviewResponse(ligands=new_ligands, ligand_charges=ligand_charges)
 
@@ -168,4 +186,7 @@ class NoInteraction:
         raise InteractionRequired
     
     def review_ligands(self, request: LigandReviewRequest) -> LigandReviewResponse:
+        raise InteractionRequired
+    
+    def request_manual_ligands(self, request: LigandReviewRequest) -> LigandReviewResponse:
         raise InteractionRequired

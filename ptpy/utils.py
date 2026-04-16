@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from .scripts import lanl_header, dz_header, cube_header, ligand_header
-from .config import MEMORY, NUMBER_CORES_GAUSSIAN, BASES_FOLDER
+from .config import MEMORY, GAUSSIAN_NUM_CORES, BASES_FOLDER
 from .ir import _SYMBOLS, Geometry
 
 def getbasis(name, atom, bases_folder: Path):
@@ -85,7 +85,7 @@ def _is_geometry_line(line: str) -> bool:
 def _write_lanl_input(com_file: Path, chk_file: Path, charge: int, mult: int, geometry_lines: list[str]) -> None:
     header = lanl_header.substitute(
         memory=MEMORY,
-        num_cpus=NUMBER_CORES_GAUSSIAN,
+        num_cpus=GAUSSIAN_NUM_CORES,
         check_file=chk_file.name,
         job_description="LANL optimization",
         charge=charge,
@@ -98,7 +98,7 @@ def make_dz_file(com_file: Path, chk_file: Path, geometry_lines: list[str], atom
     
     header = dz_header.substitute(
         memory=MEMORY,
-        num_cpus=NUMBER_CORES_GAUSSIAN,
+        num_cpus=GAUSSIAN_NUM_CORES,
         check_file=chk_file.name,
         job_description="DZ optimization and frequency calculation",
         charge=charge,
@@ -132,7 +132,7 @@ def make_dz_file(com_file: Path, chk_file: Path, geometry_lines: list[str], atom
 
     header = cube_header.substitute(
         memory=MEMORY,
-        num_cpus=NUMBER_CORES_GAUSSIAN,
+        num_cpus=GAUSSIAN_NUM_CORES,
         check_file=chk_file.name,
         job_description="Cube file generation for density and potential",
         charge=charge,
@@ -190,7 +190,7 @@ def make_ligand_file(com_file: Path, chk_file: Path, geometry: Geometry, charge:
                 
             f.write(ligand_header.substitute(
                 memory=MEMORY,
-                num_cpus=NUMBER_CORES_GAUSSIAN,
+                num_cpus=GAUSSIAN_NUM_CORES,
                 check_file=chk_file.name,
                 job_description=f"Ligand {i+1} optimization",
                 charge=charge - ligand_charge,
@@ -226,7 +226,7 @@ def make_ligand_file(com_file: Path, chk_file: Path, geometry: Geometry, charge:
             f.write("--Link1--\n")
             f.write(ligand_header.substitute(
                 memory=MEMORY,
-                num_cpus=NUMBER_CORES_GAUSSIAN,
+                num_cpus=GAUSSIAN_NUM_CORES,
                 check_file=chk_file.name,
                 job_description=f"Ligand {i+1} optimization",
                 charge=ligand_charge,

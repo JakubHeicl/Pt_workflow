@@ -51,30 +51,32 @@ class Atom:
             z=data["z"]
         )
     
-    def get_xyz(self):
+    def coordinates(self):
         return np.array([self.x, self.y, self.z])
 
-    def dist(self, atom2: Atom) -> float:
-        return np.linalg.norm(self.get_xyz() - atom2.get_xyz())
+    def distance_to(self, atom2: Atom) -> float:
+        return np.linalg.norm(self.coordinates() - atom2.coordinates())
+
+class LigandError(Exception):
+    def __init__(self, message):
+        super().__init__(message)
 
 @dataclass
 class Geometry:
     atoms: list[Atom]
-    look_for_ligands: bool = False
     pt_neighbors: list[Atom] | None = None
     ligands: list[list[Atom]] | None = None
     ligand_charges: list[int] | None = None 
 
-    def __post_init__(self):
-        if self.pt_neighbors is None and self.look_for_ligands: 
-            self.pt_neighbors = self.find_neighbors(self.get_Pt_atom(), num_neighbors=6, for_Pt=True)
-        if self.ligands is None and self.look_for_ligands: 
-            ligands = self.find_ligands()
-
-            if ligands is None:
-                raise RuntimeError("Failed to automatically find ligands, please specify them manually.")
-
+    def detect_and_store_ligands(self) -> None:
+        try:
+            if self.pt_neighbors is None:
+                self.pt_neighbors = self.find_nearest_neighbors(self.get_pt_atom(), num_neighbors=6, for_Pt=True)
+            ligands = self._find_ligands()
             self.ligands = ligands
+        except Exception as e:
+            self.ligands = None
+            raise LigandError(f"Failed to automatically find ligands: {e}.")
 
     def to_json(self) -> dict:
         return {
@@ -113,7 +115,7 @@ class Geometry:
         raise Exception("Atom not found in geometry.")
 
     
-    def get_Pt_atom(self) -> Atom | None:
+    def get_pt_atom(self) -> Atom | None:
         for atom in self.atoms:
             if atom.symbol == "Pt":
                 return atom
@@ -122,23 +124,23 @@ class Geometry:
     def get_atom(self, index):
         return self.atoms[index]
 
-    def find_neighbors(self, target_atom: Atom, num_neighbors: int, for_Pt: bool = False) -> list[Atom]:
+    def find_nearest_neighbors(self, target_atom: Atom, num_neighbors: int, for_Pt: bool = False) -> list[Atom]:
         distances = []
         for atom in self.atoms:
             if atom != target_atom and ((not for_Pt) or (atom.symbol != "H")):
-                dist = target_atom.dist(atom)
+                dist = target_atom.distance_to(atom)
                 distances.append((atom, dist))
         
         distances.sort(key=lambda x: x[1])
         
         return list(map(list, zip(*distances[:num_neighbors])))[0]
     
-    def find_ligands(self) -> list[list[Atom]] | None:
+    def _find_ligands(self) -> list[list[Atom]] | None:
         
         ligands: list[list[Atom]] = []
         pt_neighbors = self.pt_neighbors
         assigned_atoms = set(pt_neighbors) #Set for tracking which atoms have already been assigned to a ligand, starting with Pt neighbors
-        assigned_atoms.add(self.get_Pt_atom())
+        assigned_atoms.add(self.get_pt_atom())
 
         #Every neighbor of Pt is a starting point for a ligand, we will expand from there and then merge ligands if they are linked together
         for pt_neighbor in pt_neighbors:
@@ -158,16 +160,16 @@ class Geometry:
                     num_neighbors = 4
                     max_dist= 2
                 
-                new_atoms = self.find_neighbors(current_atom, num_neighbors)  # Find neighbors of the current atom to potentially add to the ligand
+                new_atoms = self.find_nearest_neighbors(current_atom, num_neighbors)  # Find neighbors of the current atom to potentially add to the ligand
             
                 for new_atom in new_atoms:
                     if new_atom not in assigned_atoms:
                         too_close = any(
-                            new_atom.dist(other_ligand_atom) < 1.75
+                            new_atom.distance_to(other_ligand_atom) < 1.75
                             for other_ligand in ligands
                             for other_ligand_atom in other_ligand
                             )
-                        too_far = current_atom.dist(new_atom) > max_dist
+                        too_far = current_atom.distance_to(new_atom) > max_dist
                         if not too_close and not too_far:
                             ligand.append(new_atom)
                             queue.append(new_atom)  # Add the new atom to the queue to find its neighbors in the next iterations
@@ -176,7 +178,7 @@ class Geometry:
             ligands.append(ligand)
             
         linked_ligands = any(
-            ligand_atom.dist(other_ligand_atom) < 1.75
+            ligand_atom.distance_to(other_ligand_atom) < 1.75
             for ligand in ligands
             for ligand_atom in ligand
             for other_ligand in ligands if not other_ligand == ligand
@@ -190,7 +192,7 @@ class Geometry:
                         if other_ligand == ligand:
                             continue
                         for other_ligand_atom in other_ligand:
-                            if ligand_atom.dist(other_ligand_atom) < 1.75:
+                            if ligand_atom.distance_to(other_ligand_atom) < 1.75:
                                 
                                 ligand.extend(other_ligand)
                                 ligands.remove(other_ligand)
@@ -203,7 +205,7 @@ class Geometry:
                 if merged:
                     break
             linked_ligands = any(
-                ligand_atom.dist(other_ligand_atom) < 1.75
+                ligand_atom.distance_to(other_ligand_atom) < 1.75
                 for ligand in ligands
                 for ligand_atom in ligand
                 for other_ligand in ligands if not other_ligand == ligand
@@ -214,8 +216,7 @@ class Geometry:
             sum_of_atoms += len(ligand)
             
         if sum_of_atoms != self.number_of_atoms:
-            print("Mám problém s nalezením ligandů, zadejte ručně")
-            return None
+            raise LigandError("Some atoms were not assigned to any ligand.")
         
         final_ligands = []
         
@@ -258,7 +259,7 @@ class StepStatus(Enum):
     COMPLETED = "completed"
     NOT_SURE = "not_sure"
     FAILED = "failed"
-    NOT_SUBMITED = "not_submitted"
+    NOT_SUBMITTED = "not_submitted"
 
 @dataclass
 class CalculationStep:
@@ -388,7 +389,6 @@ class Repository:
 
     def add_case(self, case: WorkflowCase):
         if self.get_case_by_name(case.name) is not None:
-            print(f"Case with name {case.name} already exists in the repository. Skipping...")
             return
         self.cases.append(case)
         case.repository = self
@@ -408,9 +408,11 @@ class Repository:
             raise RuntimeError(f"Folder {folder_path} does not exist. Cannot save repository.")
 
         for case in self.cases:
+            case_file_tmp = Path(folder_path, case.name).with_suffix(".json.tmp")
             case_file = Path(folder_path, case.name).with_suffix(".json")
-            with open(case_file, "w", encoding="utf-8") as f:
+            with open(case_file_tmp, "w", encoding="utf-8") as f:
                 json.dump(case.to_json(), f, indent=4)
+            case_file_tmp.replace(case_file)
 
     def load_from_folder(self, folder_path: Path):
         if not folder_path.exists():

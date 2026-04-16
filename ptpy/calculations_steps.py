@@ -3,11 +3,11 @@ import time
 import shutil
 import numpy as np
 
-from .ir import StepStatus, WorkflowCase, CalculationType
+from .ir import LigandError, StepStatus, WorkflowCase, CalculationType
 from .parser import FileStatus, get_aim_status, get_last_geometry, get_log_termination_status
-from .scheduler import Scheduler, UnsificientResourcesException, RemoteExecutionException, SubmissionFailedException
+from .scheduler import Scheduler, InsufficientResourcesError, RemoteExecutionException, SubmissionFailedException
 from .utils import xyz_to_lanl, com_to_lanl, make_dz_file, make_ligand_file
-from .config import AIM_CLUSTER, AIM_FOLDER, ALIP_SCRIPT, CONFIG_ALIP, LANL_EXTENSION, DZ_EXTENSION, LIGAND_EXTENSION, MAX_AIM_TIME, MAX_ALIP_TIME, NUMBER_OF_CORES_AIM, MAX_RUNNING_AIM, ALIP_ELSTAT_CLUSTER, ALIP_ELSTAT_FOLDER, POTMIT_EXE, ALIP_EXE ,ELSTAT_SCRIPT, ALIP_SCRIPT  
+from .config import AIM_CLUSTER, AIM_REMOTE_DIR, ALIP_SCRIPT, CONFIG_ALIP, LANL_EXTENSION, DZ_EXTENSION, LIGAND_EXTENSION, MAX_AIM_TIME, MAX_ALIP_TIME, NUMBER_OF_CORES_AIM, MAX_RUNNING_AIM, ALIP_ELSTAT_CLUSTER, ALIP_ELSTAT_REMOTE_DIR, POTMIT_EXE, ALIP_EXE ,ELSTAT_SCRIPT, ALIP_SCRIPT  
 from .scripts import aim_analysis_script
 from .interaction import Logger, Interaction, LigandReviewRequest, InteractionRequired
 
@@ -61,7 +61,7 @@ def prepare_lanl_optimization(case: WorkflowCase, scheduler: Scheduler, logger: 
     current_step.local_files["chk"] = lanl_chk_file
     current_step.local_files["log"] = lanl_log_file
 
-    current_step.status = StepStatus.NOT_SUBMITED
+    current_step.status = StepStatus.NOT_SUBMITTED
 
 def prepare_dz_optimization(case: WorkflowCase, scheduler: Scheduler, logger: Logger, interaction: Interaction):
 
@@ -95,7 +95,7 @@ def prepare_dz_optimization(case: WorkflowCase, scheduler: Scheduler, logger: Lo
     current_step.local_files["den"] = den_file
     current_step.local_files["pot"] = pot_file
 
-    current_step.status = StepStatus.NOT_SUBMITED
+    current_step.status = StepStatus.NOT_SUBMITTED
     
 def prepare_aim_analysis(case: WorkflowCase, scheduler: Scheduler, logger: Logger, interaction: Interaction):
 
@@ -113,7 +113,7 @@ def prepare_aim_analysis(case: WorkflowCase, scheduler: Scheduler, logger: Logge
 
     folder = current_step.folder
     folder.mkdir(parents=True, exist_ok=True)
-    current_step.remote_folder = PurePosixPath(AIM_FOLDER, case.name)
+    current_step.remote_folder = PurePosixPath(AIM_REMOTE_DIR, case.name)
 
     shutil.copy(dz_fchk_file, folder)
 
@@ -133,7 +133,7 @@ def prepare_aim_analysis(case: WorkflowCase, scheduler: Scheduler, logger: Logge
     current_step.remote_files["wfx"] = current_step.remote_files.get("fchk").with_suffix(".wfx")
     current_step.remote_files["out"] = PurePosixPath(current_step.remote_folder, "output.log")
 
-    current_step.status = StepStatus.NOT_SUBMITED
+    current_step.status = StepStatus.NOT_SUBMITTED
 
 def run_aim_analysis(case: WorkflowCase, scheduler: Scheduler, logger: Logger):
 
@@ -157,7 +157,7 @@ def run_aim_analysis(case: WorkflowCase, scheduler: Scheduler, logger: Logger):
         scheduler.run_remote_background_command(AIM_CLUSTER, aim_script)
     except RemoteExecutionException as e:
         logger.log(f"Failed to run AIM analysis for case {case.name} on cluster {AIM_CLUSTER}: {e} Trying again later...")
-        current_step.status = StepStatus.NOT_SUBMITED
+        current_step.status = StepStatus.NOT_SUBMITTED
         return
     
     current_step.start_time = int(time.time())
@@ -172,13 +172,21 @@ def prepare_ligand_energies(case: WorkflowCase, scheduler: Scheduler, logger: Lo
     geometry = case.last_geometry
 
     try:
-        ligand_review_response = interaction.review_ligands(LigandReviewRequest(
-            case_name=case.name,
-            pt_neighbors_labels=[f"{atom.symbol}{geometry.get_atom_index(atom)}" for atom in geometry.pt_neighbors],
-            suggested_ligands=[[geometry.get_atom_index(atom) for atom in ligand] for ligand in geometry.ligands],
-            atom_labels=[f"{atom.symbol}{geometry.get_atom_index(atom)}" for atom in geometry.atoms],
-            total_charge=case.charge
-        ))
+        if geometry.ligands is None:
+            ligand_review_response = interaction.request_manual_ligands(LigandReviewRequest(
+                case_name=case.name,
+                pt_neighbors_labels=[f"{atom.symbol}{geometry.get_atom_index(atom)}" for atom in geometry.pt_neighbors],
+                atom_labels=[f"{atom.symbol}{geometry.get_atom_index(atom)}" for atom in geometry.atoms],
+                total_charge=case.charge
+            ))
+        else:
+            ligand_review_response = interaction.review_ligands(LigandReviewRequest(
+                case_name=case.name,
+                pt_neighbors_labels=[f"{atom.symbol}{geometry.get_atom_index(atom)}" for atom in geometry.pt_neighbors],
+                suggested_ligands=[[geometry.get_atom_index(atom) for atom in ligand] for ligand in geometry.ligands],
+                atom_labels=[f"{atom.symbol}{geometry.get_atom_index(atom)}" for atom in geometry.atoms],
+                total_charge=case.charge
+            ))
     except InteractionRequired:
         logger.log(f"Ligand review is required for case {case.name} but no interaction method is available. Skipping for now.")
         return
@@ -205,7 +213,7 @@ def prepare_ligand_energies(case: WorkflowCase, scheduler: Scheduler, logger: Lo
     current_step.local_files["chk"] = chk_file
     current_step.local_files["log"] = log_file
 
-    current_step.status = StepStatus.NOT_SUBMITED
+    current_step.status = StepStatus.NOT_SUBMITTED
 
 def run_gaussian_calculation(case: WorkflowCase, scheduler: Scheduler, logger: Logger):
 
@@ -217,13 +225,13 @@ def run_gaussian_calculation(case: WorkflowCase, scheduler: Scheduler, logger: L
 
     try:
         job_id = scheduler.submit_job(folder, com_file, chk_file)
-    except UnsificientResourcesException:
+    except InsufficientResourcesError:
         logger.log(f"Insufficient resources to run {current_step.calculation_type.value} for case {case.name}. Trying again later...")
-        current_step.status = StepStatus.NOT_SUBMITED
+        current_step.status = StepStatus.NOT_SUBMITTED
         return
     except SubmissionFailedException:
         logger.log(f"Failed to submit {current_step.calculation_type.value} job for case {case.name}. Trying again later...")
-        current_step.status = StepStatus.NOT_SUBMITED
+        current_step.status = StepStatus.NOT_SUBMITTED
         return
     
     current_step.job_id = job_id
@@ -241,7 +249,7 @@ def prepare_alip_elstat_calculation(case: WorkflowCase, scheduler: Scheduler, lo
 
     folder = current_step.folder
     folder.mkdir(parents=True, exist_ok=True)
-    current_step.remote_folder = PurePosixPath(ALIP_ELSTAT_FOLDER, case.name)
+    current_step.remote_folder = PurePosixPath(ALIP_ELSTAT_REMOTE_DIR, case.name)
 
     den_file = dz_step.local_files.get("den")
     pot_file = dz_step.local_files.get("pot")
@@ -269,7 +277,7 @@ def prepare_alip_elstat_calculation(case: WorkflowCase, scheduler: Scheduler, lo
     current_step.local_files["exa"] = Path(folder, den_file.with_suffix(".exa-s").name)
     current_step.local_files["exp"] = Path(folder, den_file.with_suffix(".exp-s").name)
 
-    current_step.status = StepStatus.NOT_SUBMITED
+    current_step.status = StepStatus.NOT_SUBMITTED
 
 def run_alip_elstat_calculation(case: WorkflowCase, scheduler: Scheduler, logger: Logger):
 
@@ -306,7 +314,7 @@ def run_alip_elstat_calculation(case: WorkflowCase, scheduler: Scheduler, logger
 
     except RemoteExecutionException as e:
         logger.log(f"Failed to run ALIP ELSTAT calculations for case {case.name} on cluster {ALIP_ELSTAT_CLUSTER}: {e} Trying again later...")
-        current_step.status = StepStatus.NOT_SUBMITED
+        current_step.status = StepStatus.NOT_SUBMITTED
         return
     
     current_step.start_time = int(time.time())
@@ -323,7 +331,7 @@ def check_gaussian_calculation(case: WorkflowCase, scheduler: Scheduler, logger:
         current_step.status = StepStatus.FAILED
         return
 
-    if scheduler.is_job_running(job_id):
+    if scheduler.is_job_active(job_id):
         return
     
     formchk_file = current_step.local_files.get("com").with_suffix(".fchk")
@@ -347,10 +355,15 @@ def check_gaussian_calculation(case: WorkflowCase, scheduler: Scheduler, logger:
         if termination_status == FileStatus.SUCCESS:
             current_step.status = StepStatus.COMPLETED
 
-            look_for_ligands = True if current_step.calculation_type == CalculationType.DZ_OPT else False
-
             if current_step.calculation_type in [CalculationType.LANL_OPT, CalculationType.DZ_OPT]:
-                case.last_geometry = get_last_geometry(current_step.local_files.get("log"), look_for_ligands=look_for_ligands)
+                case.last_geometry = get_last_geometry(current_step.local_files.get("log"))
+                if current_step.calculation_type == CalculationType.DZ_OPT:
+                    logger.log(f"Extracted geometry from log file for case {case.name} after DZ optimization. Looking for ligands ...")
+                    try:
+                        case.last_geometry.detect_and_store_ligands()
+                    except LigandError as e:
+                        logger.log(f"Error while finding ligands for case {case.name}: {e}. Please specify them manually.")
+
             slurm_output = Path(current_step.folder, f"slurm-{job_id}.out")
             slurm_output.unlink(missing_ok=True)
             fort_file = Path(current_step.folder, "fort.7")

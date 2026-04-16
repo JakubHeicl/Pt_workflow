@@ -35,7 +35,7 @@ def get_log_termination_status(case: WorkflowCase) -> FileStatus:
                 return FileStatus.FAILURE
     raise RuntimeError(f"Could not determine termination status for case {case.name}. Please check the log file for details.")
 
-def get_last_geometry(log_file: Path, look_for_ligands: bool = False) -> Geometry:
+def get_last_geometry(log_file: Path) -> Geometry:
     if not log_file.exists():
         raise RuntimeError(f"Log file {log_file} does not exist. Cannot extract geometry.")
     
@@ -78,7 +78,7 @@ def get_last_geometry(log_file: Path, look_for_ligands: bool = False) -> Geometr
 
         if not atoms:
             raise RuntimeError(f"Could not extract geometry from log file {log_file}. Please check the log file for details.")
-        return Geometry(atoms=atoms, look_for_ligands=look_for_ligands)
+        return Geometry(atoms=atoms)
 
 def get_aim_status(output_file: Path) -> FileStatus:
 
