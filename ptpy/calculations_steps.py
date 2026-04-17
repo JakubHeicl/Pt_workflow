@@ -175,24 +175,26 @@ def prepare_ligand_energies(case: WorkflowCase, scheduler: Scheduler, logger: Lo
         if geometry.ligands is None:
             ligand_review_response = interaction.request_manual_ligands(LigandReviewRequest(
                 case_name=case.name,
-                pt_neighbors_labels=[f"{atom.symbol}{geometry.get_atom_index(atom)}" for atom in geometry.pt_neighbors],
-                atom_labels=[f"{atom.symbol}{geometry.get_atom_index(atom)}" for atom in geometry.atoms],
-                total_charge=case.charge
+                pt_neighbors_labels=[f"{atom.symbol}{geometry.get_atom_number(atom)}" for atom in geometry.pt_neighbors],
+                atom_labels=[f"{atom.symbol}{geometry.get_atom_number(atom)}" for atom in geometry.atoms],
+                total_charge=case.charge,
+                pt_number=geometry.get_atom_number(geometry.get_pt_atom())
             ))
         else:
             ligand_review_response = interaction.review_ligands(LigandReviewRequest(
                 case_name=case.name,
-                pt_neighbors_labels=[f"{atom.symbol}{geometry.get_atom_index(atom)}" for atom in geometry.pt_neighbors],
-                suggested_ligands=[[geometry.get_atom_index(atom) for atom in ligand] for ligand in geometry.ligands],
-                atom_labels=[f"{atom.symbol}{geometry.get_atom_index(atom)}" for atom in geometry.atoms],
-                total_charge=case.charge
+                pt_neighbors_labels=[f"{atom.symbol}{geometry.get_atom_number(atom)}" for atom in geometry.pt_neighbors],
+                suggested_ligands=[[geometry.get_atom_number(atom) for atom in ligand] for ligand in geometry.ligands],
+                atom_labels=[f"{atom.symbol}{geometry.get_atom_number(atom)}" for atom in geometry.atoms],
+                total_charge=case.charge,
+                pt_number=geometry.get_atom_number(geometry.get_pt_atom())
             ))
     except InteractionRequired:
         logger.log(f"Ligand review is required for case {case.name} but no interaction method is available. Skipping for now.")
         return
     
     geometry.ligand_charges = ligand_review_response.ligand_charges
-    geometry.ligands = [[geometry.atoms[index] for index in ligand] for ligand in ligand_review_response.ligands]
+    geometry.ligands = [[geometry.get_atom_by_number(number) for number in ligand] for ligand in ligand_review_response.ligands]
 
     current_step = case.get_current_step()
     folder = current_step.folder

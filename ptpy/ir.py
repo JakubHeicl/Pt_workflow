@@ -108,21 +108,28 @@ class Geometry:
     def number_of_atoms(self) -> int:
         return len(self.atoms)
     
-    def get_atom_index(self, target_atom):
+    def get_atom_index(self, target_atom) -> int:
         for i, atom in enumerate(self.atoms):
             if atom == target_atom:
                 return i
         raise Exception("Atom not found in geometry.")
-
     
+    def get_atom_number(self, target_atom: Atom) -> int:
+        return self.get_atom_index(target_atom) + 1
+
     def get_pt_atom(self) -> Atom | None:
         for atom in self.atoms:
             if atom.symbol == "Pt":
                 return atom
         return None
     
-    def get_atom(self, index):
+    def get_atom_by_index(self, index: int) -> Atom:
+        if index < 0 or index >= len(self.atoms):
+            raise IndexError("Atom index out of range.")
         return self.atoms[index]
+    
+    def get_atom_by_number(self, number: int) -> Atom:
+        return self.get_atom_by_index(number - 1)
 
     def find_nearest_neighbors(self, target_atom: Atom, num_neighbors: int, for_Pt: bool = False) -> list[Atom]:
         distances = []
@@ -227,12 +234,10 @@ class Geometry:
 
         #sort the ligands by the pt neighbor they are linked to, so the order of ligands is always the same and corresponds to the order of pt neighbors
         sorted_final_ligands = []
-        used_ligands = list()
         for pt_neighbor in pt_neighbors:
             for ligand in final_ligands:
-                if pt_neighbor in ligand and ligand not in used_ligands:
+                if pt_neighbor in ligand:
                     sorted_final_ligands.append(ligand)
-                    used_ligands.append(ligand)
                     break
 
         return sorted_final_ligands
@@ -242,7 +247,7 @@ class Geometry:
         final_string = ""
         
         for atom in ligand:
-            final_string = f"{final_string}{atom.symbol}{self.get_atom_index(atom)} "
+            final_string = f"{final_string}{atom.symbol}{self.get_atom_number(atom)} "
             
         return final_string.strip()
 

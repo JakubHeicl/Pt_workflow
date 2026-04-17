@@ -182,7 +182,7 @@ def make_ligand_file(com_file: Path, chk_file: Path, geometry: Geometry, charge:
             for j, ligand2 in enumerate(geometry.ligands):
                 if i == j:
                     continue
-                if ligand == ligand2:
+                if set(ligand) == set(ligand2):
                     ligand_charge += geometry.ligand_charges[j]
         
             if i != 0:
