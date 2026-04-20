@@ -3,3 +3,7 @@ __pycache__
 runs
 generated_xyz
 input_files
+input_suggestions
+build
+dist
+*.egg-info

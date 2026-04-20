@@ -1,7 +1,6 @@
 from pathlib import Path, PurePosixPath
 import time
 import shutil
-import numpy as np
 
 from .ir import LigandError, StepStatus, WorkflowCase, CalculationType
 from .parser import FileStatus, get_aim_status, get_last_geometry, get_log_termination_status

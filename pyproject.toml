@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ptpy"
+version = "0.1.0"
+description = "Workflow automation for Gaussian, AIMAll, and ALIP/ELSTAT calculations on platinum complexes."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.23",
+    "rdkit>=2023.9",
+]
+
+[project.scripts]
+ptpy = "ptpy.__main__:main"
+
+[tool.setuptools]
+packages = ["ptpy"]
+
+[tool.setuptools.package-data]
+ptpy = [
+    "bases/*",
+    "scripts/*",
+]

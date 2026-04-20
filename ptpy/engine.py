@@ -1,7 +1,6 @@
 from pathlib import Path
 import shutil
 import time
-from tqdm import tqdm
 from copy import deepcopy
 
 from .ir import WorkflowCase, CalculationStep, StepStatus, CalculationType, Repository
