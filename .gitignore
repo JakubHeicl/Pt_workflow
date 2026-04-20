@@ -1,6 +1,4 @@
 repository
 __pycache__
 runs
-input.smi
-smiles.py
 generated_xyz

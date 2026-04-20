@@ -1,8 +1,11 @@
 from pathlib import Path
 import argparse
+import sys
 
 from .engine import run, show_status, restore, stop_loop
+from .config import SUG_DIR
 from .interaction import NoInteraction, ConsoleInteraction, Logger
+from smiles import process_smiles_file
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--status", action="store_true", help="Show status of all cases in the repository.")
@@ -11,6 +14,7 @@ parser.add_argument("--auto", action="store_true", help="Do not ask for confirma
 parser.add_argument("--log-file", type=Path, default=None, help="Path to the log file.")
 parser.add_argument("--loop", action="store_true", help="Run the workflow in a loop, checking for new cases and running jobs every few seconds.")
 parser.add_argument("--stop", action="store_true", help="Stop the workflow loop by creating a STOP_FILE in the repository folder. The workflow will check for this file at the end of each loop and stop if it exists.")
+parser.add_argument("--suggest_from_smiles", type=Path, help="Path to a file containing SMILES strings for which to generate suggestions.")
 
 if __name__ == "__main__":
     args = parser.parse_args()
@@ -20,12 +24,20 @@ if __name__ == "__main__":
         interaction = NoInteraction(logger)
     else:
         interaction = ConsoleInteraction(logger)
-
     if args.status:
         show_status(logger)
     elif args.restore:
         restore(logger, interaction)
     elif args.stop:
         stop_loop()
+    elif args.suggest_from_smiles:
+        if not args.suggest_from_smiles.is_file():
+            logger.log(f"File {args.suggest_from_smiles} does not exist.")
+            sys.exit(1)
+        process_smiles_file(args.suggest_from_smiles,
+            out_dir=SUG_DIR,
+            charge=0,
+            mult=1,
+            route_line="#p")
     else:
         run(logger, interaction, loop=args.loop)
