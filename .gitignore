@@ -2,3 +2,5 @@ repository
 __pycache__
 runs
 generated_xyz
+input_files
+input.smi
